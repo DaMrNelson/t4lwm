@@ -1,5 +1,11 @@
 Go to Connection Setup and ctrl+F Connection Setup
 
-Connect on :1 (Xephyr): Xephyr -ac -screen 1280x1024 -br -reset -terminate :1
-Connect on :9 (xtrace on Xephyr): DISPLAY=:1 xtrace -n -d :1
-Combined: Xephyr -ac -screen 1280x1024 -br -reset -terminate :1 & DISPLAY=:1 xtrace -n -d :1
+Xephyr: Xephyr -ac -screen 1280x1024 -br -reset -terminate :1
+
+xtrace: DISPLAY=:1 xtrace -n -d :1
+Xephyr+xtrace (connect on :9): Xephyr -ac -screen 1280x1024 -br -reset -terminate :1 & DISPLAY=:1 xtrace -n -d :1
+
+#socat: socat -t1000 -x -v UNIX-LISTEN:/tmp/.X11-unix/X9,mode=777,reuseaddr,fork UNIX-CONNECT:/tmp/.X11-unix/X1
+#Xephyr+socat: Xephyr -ac -screen 1280x1024 -br -reset -terminate :1 & socat -t1000 -x -v UNIX-LISTEN:/tmp/.X11-unix/X9,mode=777,reuseaddr,fork UNIX-CONNECT:/tmp/.X11-unix/X1
+Dumping data: ./dump_unix.sh
+Xephyr+Dumping data: Xephyr -ac -screen 1280x1024 -br -reset -terminate :1 & ./dump_unix.sh

@@ -37,38 +37,55 @@ fn main() {
 
     let window_id = last | base;
 
+    // What I am doing:
+    //     CreateWindow
+    // What I maybe should be doing?
+    //     CreatePixmap
+    //     CreateGC
+    //     PolyFillRectangle
+    //     CreateWindow
+
+    // Create a pixmap
+    let mut pixmap = Pixmap {
+        depth: client.connect_info.screens[0].root_depth,
+        pid: 0x0, // TODO: Dynamic // TODO: Copy this from the working request
+        drawable: client.connect_info.screens[0].root,
+        width: 20,
+        height: 20
+    };
+
+    client.create_pixmap(pixmap);
+
+    // Create GC (graphics context)
+    let mut gc = GraphicsContext {
+        cid: 0, // TODO: Dynamic
+        drawable: client.connect_info.screens[0].root,
+        values: vec![
+            GraphicsContextValue::Background(client.connect_info.screens[0].black_pixel),
+            GraphicsContextValue::Foreground(client.connect_info.screens[0].white_pixel)
+        ]
+    };
+
+    client.create_gc(gc);
+
     // Create a window
     //println!("{:#?}", client.connect_info);
     println!("Win ID:  {}", window_id);
     let mut window = Window {
-        depth: 255,
-        wid: window_id, // Window's ID
-        parent: client.connect_info.screens[0].root,
+        depth: client.connect_info.screens[0].root_depth,
+        //wid: window_id, // Window's ID
+        wid: 0x00200002, // TODO: Dynamic
+        //parent: client.connect_info.screens[0].root,
+        parent: 0x0000026d, // TODO: Dynamic
         x: 20,
         y: 200,
         width: 500,
         height: 500,
         border_width: 0,
         class: WindowInputType::InputOutput,
-        visual_id: client.connect_info.screens[0].root_visual,
-        bitmask: WINDOW_BITMASK_BACKGROUND_PIXMAP,
-        values: vec![WindowValue {
-            background_pixmap: client.connect_info.screens[0].white_pixel, // 0 = None, 1 = Parent Relative
-            background_pixel: 0,
-            border_pixmap: 0, // 0 = CopyFromParent
-            border_pixel: 0,
-            bit_gravity: BitGravity::Center,
-            win_gravity: WindowGravity::Center,
-            backing_store: WindowValueBackingStore::NotUseful,
-            backing_planes: 0,
-            backing_pixel: 0,
-            override_redirect: false,
-            save_under: false,
-            event_mask: 0,
-            do_not_propagate_mask: 0,
-            colormap: 0, // 0 = CopyFromParent
-            cursor: 0 // 0 = None
-        }]
+        //visual_id: client.connect_info.screens[0].root_visual,
+        visual_id: 0, // CopyFromParent
+        values: vec![]
     };
     client.create_window(&window);
 

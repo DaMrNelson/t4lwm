@@ -3,14 +3,16 @@
 
 pub mod protocol;
 pub mod models;
+pub mod xwriter;
 
 extern crate bufstream;
 
 use std::os::unix::net::UnixStream;
 use std::io::prelude::*;
-use self::bufstream::BufStream;
 
+use self::bufstream::BufStream;
 use self::models::*;
+use self::xwriter::XBufferedWriter;
 
 pub struct XClient {
     pub connected: bool,
@@ -194,35 +196,37 @@ impl XClient {
             WindowInputType::InputOnly => 2
         });
         self.write_u32(window.visual_id);
-        self.write_u32(window.bitmask);
-        
-        for value in window.values.iter() {
-            println!("Writing a window value!");
-            self.write_u32(value.background_pixmap);
-            self.write_u32(value.background_pixel);
-            self.write_u32(value.border_pixmap);
-            self.write_u32(value.border_pixel);
-            self.write_u8(value.bit_gravity.get_value());
-            self.write_u8(value.win_gravity.get_value());
-            self.write_u8(match value.backing_store {
-                WindowValueBackingStore::NotUseful => 0,
-                WindowValueBackingStore::WhenMapped => 1,
-                WindowValueBackingStore::Always => 2
-            });
-            self.write_u32(value.backing_planes);
-            self.write_u32(value.backing_pixel);
-            self.write_bool(value.override_redirect);
-            self.write_bool(value.save_under);
-            self.write_u32(value.event_mask);
-            self.write_u32(value.do_not_propagate_mask);
-            self.write_u32(value.colormap);
-            self.write_u32(value.cursor);
-            self.write_pad(3); // TODO: Do we actually write this pad? For some reason it is 25 bytes per value...
-        }
+        self.write_values(&window.values);
 
         self.write_flush();
     }
 
+    /** Tells the X Server to create a pixmap */
+    pub fn create_pixmap(&mut self, pixmap: Pixmap) {
+        self.write_u8(protocol::OP_CREATE_PIXMAP);
+        self.write_u8(pixmap.depth);
+        self.write_u16(4); // Request length
+        self.write_u32(pixmap.drawable);
+        self.write_u16(pixmap.width);
+        self.write_u16(pixmap.height);
+
+        self.write_flush();
+    }
+
+    /** Tells the X Server to create a graphics context */
+    pub fn create_gc(&mut self, gc: GraphicsContext) {
+        self.write_u8(protocol::OP_CREATE_GC);
+        self.write_pad(0);
+        self.write_u16(4 + gc.values.len() as u16);
+        self.write_u32(gc.cid);
+        self.write_u32(gc.drawable);
+        self.write_values(&gc.values);
+
+        self.write_flush();
+    }
+}
+
+impl XBufferedWriter for XClient {
     /** Flushes the buffer. */
     fn write_flush(&mut self) {
         self.buf.flush().unwrap();
@@ -295,6 +299,97 @@ impl XClient {
         self.buf_four_byte[2] = (input >> 16) as u8;
         self.buf_four_byte[3] = (input >> 24) as u8;
         self.buf.write_all(&self.buf_four_byte).unwrap();
+    }
+
+    /**
+     * Writes 4 bytes to the buffer, with the least significant being the bool.
+     */
+    fn write_val_bool(&mut self, input: bool) {
+        match input {
+            true => self.write_val(1u8 as u32),
+            false => self.write_val(0u8 as u32)
+        };
+    }
+
+    /**
+     * Writes a 4-byte value to the buffer.
+     * Expects little endian.
+     */
+    fn write_val_u8(&mut self, input: u8) {
+        self.write_val(input as u32);
+    }
+
+    /**
+     * Writes a 4-byte value to the buffer.
+     * Expects little endian.
+     */
+    fn write_val_i16(&mut self, input: i16) {
+        self.write_val_u16(input as u16);
+    }
+
+    /**
+     * Writes a 4-byte value to the buffer.
+     * Expects little endian.
+     */
+    fn write_val_u16(&mut self, input: u16) {
+        self.write_val(input as u32);
+    }
+
+    /**
+     * Writes a i32 to the buffer.
+     * Expects little endian.
+     */
+    fn write_val_i32(&mut self, input: i32) {
+        self.write_val(input as u32);
+    }
+
+    /**
+     * Writes a u32 to the buffer.
+     * Expects little endian.
+     */
+    fn write_val_u32(&mut self, input: u32) {
+        self.write_val(input);
+    }
+
+    /**
+     * Writes a u32 to the buffer.
+     * Expects little endian.
+     */
+    fn write_val(&mut self, input: u32) {
+        self.write_u32(input);
+    }
+
+    /**
+     * Writes a bitmap and values to the buffer.
+     */
+    fn write_values<T: Value>(&mut self, values: &Vec<T>) {
+        let mut value_mask: u32 = 0x0;
+        let mut order: Vec<usize> = Vec::with_capacity(values.len());
+
+        for (i, value) in values.iter().enumerate() {
+            let ordered = value.get_mask();
+            value_mask |= ordered;
+            let mut pos = order.len();
+
+            for (j, val) in order.iter().enumerate()  {
+                if ordered < values[*val].get_mask() {
+                    pos = j;
+                    break;
+                }
+            }
+
+            if pos < order.len() {
+                order.insert(pos, i);
+            } else {
+                order.push(pos);
+            }
+        }
+
+        self.write_u32(value_mask);
+
+        for i in order.iter() {
+            values[*i].write(self);
+        }
     }
 
     /**

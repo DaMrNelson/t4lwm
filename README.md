@@ -6,6 +6,7 @@ XRS will be moved to its own library and repository in the future. It is just to
 
 # TODO
     - XRB: XCB, but for Rust
+        - Fix LISTofVALUE and BITMASK usage (once I figure out how bitmasks work too, I don't fully understand them yet)
         - Give all enums get_value for mappings (sample in BitGravity)
         - Convert that shit to Rust
         - Don't unwrap and panic everywhere

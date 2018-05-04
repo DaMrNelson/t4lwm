@@ -7,3 +7,11 @@ Using this to track what I have done in case I ever want to write something abou
     - Use StreamBuf to do this with lower overhead
 - Use a bunch of Regex in Sublime Text (ie ([a-z])([A-Z])) to swap the opcodes from https://cgit.freedesktop.org/xorg/proto/xproto/tree/Xproto.h to CONSTANT_CASE
 - Start working on the CreateWindow request. So many structures :(
+    - Kept on getting error 14 IDChoice, so I got python-xlib and compared its xtrace to mine
+    - I made them look exactly the same and still got errors. I think xtrace was leaving out some details
+    - Use https://gist.github.com/jhass/5896418 to capture the traffic
+    - Load into wireshark
+        - Right Click -> Decode As... -> X11
+    - Requests to create the window are the same... I think its because I am not creating some of the other resources, so let's get on that
+    - Finally realize how values work... I was trying to use them like normal data instead of following the mask.
+        - Learn about traits, and start using them (and make plans to use them with old stuff)
