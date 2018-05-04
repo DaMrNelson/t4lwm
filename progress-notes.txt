@@ -1,0 +1,9 @@
+Using this to track what I have done in case I ever want to write something about it later.
+
+- Use a ton of the Rust book: https://doc.rust-lang.org/book/second-edition/
+- Use a ton of the X11 Protocol Spec: https://www.x.org/releases/X11R7.7/doc/xproto/x11protocol.html
+- Spend a long time trying to figure out why "length in 4-byte units of 'additional data'" isn't correct, unless I fucked up (under "Information received by the client if the connection is accepted: ")
+    - Eventually just ignore this property and dynamically read the input depending on the count of the properties and not a fixed length
+    - Use StreamBuf to do this with lower overhead
+- Use a bunch of Regex in Sublime Text (ie ([a-z])([A-Z])) to swap the opcodes from https://cgit.freedesktop.org/xorg/proto/xproto/tree/Xproto.h to CONSTANT_CASE
+- Start working on the CreateWindow request. So many structures :(

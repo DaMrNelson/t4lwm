@@ -2,10 +2,85 @@
 pub enum BitOrder {LeastSignificant, MostSignificant} // 0,1
 #[derive(Debug)]
 pub enum ByteOrder {LSBFirst, MSBFirst} // 0,1
+
+#[derive(Debug)]
+pub enum Event {KeyPress, KeyRelease, OwnerGrabButton, ButtonPress, ButtonRelease, EnterWindow, LeaveWindow, PointerMotion, PointerMotionHint, Button1Motion, Button2Motion, Button3Motion, Button4Motion, Button5Motion, ButtonMotion, Exposure, VisibilityChange, StructureNotify, ResizeRedirect, SubstructureNotify, SubstructureRedirect, FocusChange, PropertyChange, ColormapChange, KeymapState}
+        // TODO: Find actual EVENT info in spec and map it properly
+#[derive(Debug)]
+pub enum DeviceEvent {KeyPress, KeyRelease, ButtonPress, ButtonRelease, PointerMotion, Button1Motion, Button2Motion, Button3Motion, Button4Motion, Button5Motion, ButtonMotion}
+        // TODO: Find actual DEVICEEVENT info in spec and map it properly
+
 #[derive(Debug)]
 pub enum ScreenBackingStores {Never, WhenMapped, Always} // 0,1,2
 #[derive(Debug)]
 pub enum VisualType {StaticGray, GrayScale, StaticColor, PseudoColor, TrueColor, DirectColor} // 0,1,2,3,4,5
+
+#[derive(Debug)]
+pub enum WindowInputType {CopyFromParent, InputOutput, InputOnly} // 0,1,2
+#[derive(Debug)]
+pub enum WindowValueBackgroundPixmap {None, ParentRelative} // 0,1
+#[derive(Debug)]
+pub enum WindowValueBorderPixmap {None} // 0
+#[derive(Debug)]
+pub enum WindowValueBackingStore {NotUseful, WhenMapped, Always} // 0,1,2
+
+// TODO: Properly map
+#[derive(Debug)]
+pub enum BitGravity {Forget, Static, NorthWest, North, NorthEast, West, Center, East, SouthWest, South, SouthEast}
+impl BitGravity {
+    pub fn get_value(&self) -> u8 {
+        match self {
+            &BitGravity::Forget => 0,
+            &BitGravity::Static => 1,
+            &BitGravity::NorthWest => 2,
+            &BitGravity::North => 3,
+            &BitGravity::NorthEast => 4,
+            &BitGravity::West => 5,
+            &BitGravity::Center => 6,
+            &BitGravity::East => 7,
+            &BitGravity::SouthWest => 8,
+            &BitGravity::South => 9,
+            &BitGravity::SouthEast => 10
+        }
+    }
+}
+
+// TODO: Properly map
+#[derive(Debug)]
+pub enum WindowGravity {Unmap, Static, NorthWest, North, NorthEast, West, Center, East, SouthWest, South, SouthEast}
+impl WindowGravity {
+    pub fn get_value(&self) -> u8 {
+        match self {
+            &WindowGravity::Unmap => 0,
+            &WindowGravity::Static => 1,
+            &WindowGravity::NorthWest => 2,
+            &WindowGravity::North => 3,
+            &WindowGravity::NorthEast => 4,
+            &WindowGravity::West => 5,
+            &WindowGravity::Center => 6,
+            &WindowGravity::East => 7,
+            &WindowGravity::SouthWest => 8,
+            &WindowGravity::South => 9,
+            &WindowGravity::SouthEast => 10
+        }
+    }
+}
+
+pub const WINDOW_BITMASK_BACKGROUND_PIXMAP: u32 = 0x00000001;
+pub const WINDOW_BITMASK_BACKGROUND_PIXEL: u32 = 0x00000002;
+pub const WINDOW_BITMASK_BORDER_PIXMAP: u32 = 0x00000004;
+pub const WINDOW_BITMASK_BORDER_PIXEL: u32 = 0x00000008;
+pub const WINDOW_BITMASK_BIT_GRAVITY: u32 = 0x00000010;
+pub const WINDOW_BITMASK_WIN_GRAVITY: u32 = 0x00000020;
+pub const WINDOW_BITMASK_BACKING_STORE: u32 = 0x00000040;
+pub const WINDOW_BITMASK_BACKING_PLANES: u32 = 0x00000080;
+pub const WINDOW_BITMASK_BACKING_PIXEL: u32 = 0x00000100;
+pub const WINDOW_BITMASK_OVERRIDE_REDIRECT: u32 = 0x00000200;
+pub const WINDOW_BITMASK_SAVE_UNDER: u32 = 0x00000400;
+pub const WINDOW_BITMASK_EVENT_MASK: u32 = 0x00000800;
+pub const WINDOW_BITMASK_DO_NOT_PROPAGATE_MASK: u32 = 0x00001000;
+pub const WINDOW_BITMASK_COLORMAP: u32 = 0x00002000;
+pub const WINDOW_BITMASK_CURSOR: u32 = 0x00004000;
 
 #[derive(Debug)]
 pub struct ConnectInfo {
@@ -160,4 +235,39 @@ impl Visual {
             blue_mask: 0
         }
     }
+}
+
+#[derive(Debug)]
+pub struct Window {
+    pub depth: u8,
+    pub wid: u32, // Window's ID
+    pub parent: u32,
+    pub x: i16,
+    pub y: i16,
+    pub width: u16,
+    pub height: u16,
+    pub border_width: u16,
+    pub class: WindowInputType,
+    pub visual_id: u32,
+    pub bitmask: u32,
+    pub values: Vec<WindowValue>
+}
+
+#[derive(Debug)]
+pub struct WindowValue {
+    pub background_pixmap: u32, // 0 = None, 1 = Parent Relative // TODO: Enum that?
+    pub background_pixel: u32,
+    pub border_pixmap: u32, // 0 = CopyFromParent // TODO: Enum that?
+    pub border_pixel: u32,
+    pub bit_gravity: BitGravity,
+    pub win_gravity: WindowGravity,
+    pub backing_store: WindowValueBackingStore,
+    pub backing_planes: u32,
+    pub backing_pixel: u32,
+    pub override_redirect: bool,
+    pub save_under: bool,
+    pub event_mask: u32,
+    pub do_not_propagate_mask: u32,
+    pub colormap: u32, // 0 = CopyFromParent // TODO: Enum that?
+    pub cursor: u32 // 0 = None // TODO: Enum that?
 }

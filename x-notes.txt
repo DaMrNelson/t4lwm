@@ -2,3 +2,4 @@ Go to Connection Setup and ctrl+F Connection Setup
 
 Connect on :1 (Xephyr): Xephyr -ac -screen 1280x1024 -br -reset -terminate :1
 Connect on :9 (xtrace on Xephyr): DISPLAY=:1 xtrace -n -d :1
+Combined: Xephyr -ac -screen 1280x1024 -br -reset -terminate :1 & DISPLAY=:1 xtrace -n -d :1

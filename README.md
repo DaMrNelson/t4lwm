@@ -2,8 +2,11 @@
 Tiled 4 Life Window Manager
 A window manager I am writing to help me learn Rust.
 
+XRS will be moved to its own library and repository in the future. It is just too convenient to keep them together right now.
+
 # TODO
-    - XRB: XCB (X C Binding), but for Rust
+    - XRB: XCB, but for Rust
+        - Give all enums get_value for mappings (sample in BitGravity)
         - Convert that shit to Rust
         - Don't unwrap and panic everywhere
     - Window Manager
