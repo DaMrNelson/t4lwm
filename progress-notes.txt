@@ -15,3 +15,6 @@ Using this to track what I have done in case I ever want to write something abou
     - Requests to create the window are the same... I think its because I am not creating some of the other resources, so let's get on that
     - Finally realize how values work... I was trying to use them like normal data instead of following the mask.
         - Learn about traits, and start using them (and make plans to use them with old stuff)
+    - Properly implemented stuff. Fixed another place where I was using write_pad(0), aka writing 0 bytes of padding, and added a panic! if you try to write 0 bytes of padding.
+    - MAPPED A FUCKING WINDOW LETS GO WOOOOO
+        - Note: To get this working I have some resource IDs, like the ID of the window I create, statically set.
