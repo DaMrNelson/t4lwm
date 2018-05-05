@@ -20,7 +20,8 @@ pub struct XClient {
     buf: BufStream<UnixStream>,
     buf_one_byte: Vec<u8>,
     buf_two_byte: Vec<u8>,
-    buf_four_byte: Vec<u8>
+    buf_four_byte: Vec<u8>,
+    next_resource_id: u32
 }
 
 impl XClient {
@@ -32,7 +33,8 @@ impl XClient {
             buf: BufStream::new(stream),
             buf_one_byte: vec![0u8; 1],
             buf_two_byte: vec![0u8; 2],
-            buf_four_byte: vec![0u8; 4]
+            buf_four_byte: vec![0u8; 4],
+            next_resource_id: 0
         };
         
         return client;
@@ -62,7 +64,7 @@ impl XClient {
             self.read_pad(1);
             self.connect_info.protocol_major_version = self.read_u16();
             self.connect_info.protocol_minor_version = self.read_u16();
-            self.connect_info.additional_data_len = self.read_u16(); // I have no idea why this exists. I cannot find the correlation between it and the actual length of the data sent.
+            self.connect_info.additional_data_len = self.read_u16();
 
             // Check if the connection was a success
             // TODO: Parse body of failures
@@ -178,6 +180,21 @@ impl XClient {
         }
     }
 
+    /** Generates a new resource ID */
+    pub fn new_resource_id(&mut self) -> u32 {
+        // TODO: Thread lock
+        // TODO: Allow re-use of released resources
+
+        let id = self.next_resource_id;
+
+        if id > self.connect_info.resource_id_mask {
+            panic!("Out of resource IDs."); // Hopefully won't happen once re-using resource IDs is done
+        }
+
+        self.next_resource_id += 1;
+        self.connect_info.resource_id_base | id
+    }
+
     /** Tells the X Server to create a window */
     pub fn create_window(&mut self, window: &Window) {
         // Should be 28 not including values and their mask
@@ -245,7 +262,7 @@ impl XBufferedWriter for XClient {
     }
 
     /**
-     * Writes X bytes (not guarnteed to be zero).
+     * Writes X bytes (not guaranteed to be zero).
      */
     fn write_pad(&mut self, len: usize) {
         match len {
@@ -438,7 +455,7 @@ impl XBufferedWriter for XClient {
      */
     fn read_u16(&mut self) -> u16 {
         self.buf.read_exact(&mut self.buf_two_byte).unwrap();
-        (self.buf_two_byte[0] as u16) + (self.buf_two_byte[1] as u16 >> 8)
+        (self.buf_two_byte[0] as u16) + ((self.buf_two_byte[1] as u16) << 8)
     }
 
     /**
@@ -447,7 +464,7 @@ impl XBufferedWriter for XClient {
      */
     fn read_u32(&mut self) -> u32 {
         self.buf.read_exact(&mut self.buf_four_byte).unwrap();
-        (self.buf_four_byte[0] as u32) + (self.buf_four_byte[1] as u32 >> 8) + (self.buf_four_byte[2] as u32 >> 12) + (self.buf_four_byte[3] as u32 >> 16)
+        (self.buf_four_byte[0] as u32) + ((self.buf_four_byte[1] as u32) << 8) + ((self.buf_four_byte[2] as u32) << 16) + ((self.buf_four_byte[3] as u32) << 24)
     }
 
     /**
