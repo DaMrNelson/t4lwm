@@ -180,9 +180,10 @@ impl XClient {
 
     /** Tells the X Server to create a window */
     pub fn create_window(&mut self, window: &Window) {
+        // Should be 28 not including values and their mask
         self.write_u8(protocol::OP_CREATE_WINDOW);
         self.write_u8(window.depth);
-        self.write_u16(8 + window.values.len() as u16 * 12); // data length
+        self.write_u16(8 + window.values.len() as u16); // data length
         self.write_u32(window.wid);
         self.write_u32(window.parent);
         self.write_i16(window.x);
@@ -201,11 +202,22 @@ impl XClient {
         self.write_flush();
     }
 
+    /** Tells the X Server to map a window (makes it visible I think) */
+    pub fn map_window(&mut self, window: u32) {
+        self.write_u8(protocol::OP_MAP_WINDOW);
+        self.write_pad(1);
+        self.write_u16(2);
+        self.write_u32(window);
+
+        self.write_flush();
+    }
+
     /** Tells the X Server to create a pixmap */
     pub fn create_pixmap(&mut self, pixmap: Pixmap) {
         self.write_u8(protocol::OP_CREATE_PIXMAP);
         self.write_u8(pixmap.depth);
         self.write_u16(4); // Request length
+        self.write_u32(pixmap.pid);
         self.write_u32(pixmap.drawable);
         self.write_u16(pixmap.width);
         self.write_u16(pixmap.height);
@@ -216,7 +228,7 @@ impl XClient {
     /** Tells the X Server to create a graphics context */
     pub fn create_gc(&mut self, gc: GraphicsContext) {
         self.write_u8(protocol::OP_CREATE_GC);
-        self.write_pad(0);
+        self.write_pad(1);
         self.write_u16(4 + gc.values.len() as u16);
         self.write_u32(gc.cid);
         self.write_u32(gc.drawable);
@@ -237,6 +249,7 @@ impl XBufferedWriter for XClient {
      */
     fn write_pad(&mut self, len: usize) {
         match len {
+            0 => panic!("Cannot write 0 bytes"),
             1 => self.buf.write_all(&self.buf_one_byte),
             2 => self.buf.write_all(&self.buf_two_byte),
             4 => self.buf.write_all(&self.buf_four_byte),

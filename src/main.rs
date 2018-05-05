@@ -48,8 +48,9 @@ fn main() {
     // Create a pixmap
     let mut pixmap = Pixmap {
         depth: client.connect_info.screens[0].root_depth,
-        pid: 0x0, // TODO: Dynamic // TODO: Copy this from the working request
-        drawable: client.connect_info.screens[0].root,
+        pid: 0x00200000, // TODO: Dynamic
+        //drawable: client.connect_info.screens[0].root,
+        drawable: 0x0000026d, // TODO: Determine, it isn't far off the above
         width: 20,
         height: 20
     };
@@ -58,8 +59,9 @@ fn main() {
 
     // Create GC (graphics context)
     let mut gc = GraphicsContext {
-        cid: 0, // TODO: Dynamic
-        drawable: client.connect_info.screens[0].root,
+        cid: 0x00200001, // TODO: Dynamic
+        //drawable: client.connect_info.screens[0].root,
+        drawable: 0x0000026d, // TODO: Determine, it isn't far off the above
         values: vec![
             GraphicsContextValue::Background(client.connect_info.screens[0].black_pixel),
             GraphicsContextValue::Foreground(client.connect_info.screens[0].white_pixel)
@@ -68,9 +70,13 @@ fn main() {
 
     client.create_gc(gc);
 
+    // Create rectangle on pixmap
+    /*fill_rectangle(
+
+    )*/
+
     // Create a window
     //println!("{:#?}", client.connect_info);
-    println!("Win ID:  {}", window_id);
     let mut window = Window {
         depth: client.connect_info.screens[0].root_depth,
         //wid: window_id, // Window's ID
@@ -85,9 +91,16 @@ fn main() {
         class: WindowInputType::InputOutput,
         //visual_id: client.connect_info.screens[0].root_visual,
         visual_id: 0, // CopyFromParent
-        values: vec![]
+        values: vec![
+            WindowValue::BackgroundPixmap(0x00200000),
+            WindowValue::EventMask(Event::ButtonRelease.val() | Event::StructureNotify.val()),
+            WindowValue::Colormap(0x0)
+        ]
     };
     client.create_window(&window);
+
+    // Map the window (make it visibile)
+    client.map_window(window.wid);
 
     thread::sleep(time::Duration::from_secs(60*60*60));
 }
