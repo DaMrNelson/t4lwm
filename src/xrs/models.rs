@@ -1,3 +1,6 @@
+use std::mem::discriminant;
+
+use xrs::XClient;
 use xrs::xwriter::XBufferedWriter;
 
 // Root trait for all values (ie GraphicsContextValue)
@@ -107,6 +110,33 @@ pub struct Window {
     pub class: WindowInputType,
     pub visual_id: u32,
     pub values: Vec<WindowValue>
+}
+
+impl Window {
+    pub fn change_attrs(&mut self, client: &mut XClient, values: Vec<WindowValue>) {
+        self.values = values;
+        client.change_window_attributes(self.wid, &self.values);
+    }
+
+    pub fn set_attr(&mut self, client: &mut XClient, value: WindowValue) {
+        let mut new_pos = self.values.len();
+
+        for (i, val) in self.values.iter().enumerate() {
+            if discriminant(val) == discriminant(&value) {
+                new_pos = i;
+                break;
+            }
+        }
+
+        if new_pos == self.values.len() {
+            self.values.push(value);
+        } else {
+            self.values.remove(new_pos);
+            self.values.insert(new_pos, value);
+        }
+
+        client.change_window_attributes(self.wid, &self.values);
+    }
 }
 
 #[derive(Debug)]

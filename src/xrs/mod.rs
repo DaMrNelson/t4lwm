@@ -219,6 +219,18 @@ impl XClient {
         self.write_flush();
     }
 
+    /** Tells the X Server to change a window's attributes */
+    pub fn change_window_attributes(&mut self, wid: u32, values: &Vec<WindowValue>) {
+        // Should be 28 not including values and their mask
+        self.write_u8(protocol::OP_CHANGE_WINDOW_ATTRIBUTES);
+        self.write_pad(1);
+        self.write_u16(3 + values.len() as u16); // data length
+        self.write_u32(wid);
+        self.write_values(&values);
+
+        self.write_flush();
+    }
+
     /** Tells the X Server to map a window (makes it visible I think) */
     pub fn map_window(&mut self, window: u32) {
         self.write_u8(protocol::OP_MAP_WINDOW);

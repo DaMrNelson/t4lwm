@@ -23,14 +23,14 @@ fn main() {
         width: 20,
         height: 20
     };
+    let pid = pixmap.pid;
 
     client.create_pixmap(pixmap);
 
     // Create GC (graphics context)
     let gc = GraphicsContext {
         cid: client.new_resource_id(),
-        //drawable: client.connect_info.screens[0].root,
-        drawable: 0x0000026d, // TODO: Determine, it isn't far off the above
+        drawable: client.connect_info.screens[0].root,
         values: vec![
             GraphicsContextValue::Background(client.connect_info.screens[0].black_pixel),
             GraphicsContextValue::Foreground(client.connect_info.screens[0].white_pixel)
@@ -40,7 +40,7 @@ fn main() {
     client.create_gc(gc);
 
     // Create a window
-    let window = Window {
+    let mut window = Window {
         depth: client.connect_info.screens[0].root_depth,
         wid: client.new_resource_id(),
         parent: client.connect_info.screens[0].root,
@@ -52,14 +52,17 @@ fn main() {
         class: WindowInputType::InputOutput,
         visual_id: 0, // CopyFromParent
         values: vec![
-            WindowValue::BackgroundPixmap(0x00200000),
+            WindowValue::BackgroundPixmap(pid),
             WindowValue::EventMask(Event::ButtonRelease.val() | Event::StructureNotify.val()),
             WindowValue::Colormap(0x0)
         ]
     };
     client.create_window(&window);
+    
+    // Change the window a lil
+    window.set_attr(&mut client, WindowValue::EventMask(Event::ButtonRelease.val() | Event::ButtonPress.val() | Event::StructureNotify.val()));
 
-    // Map the window (make it visibile)
+    // Map the window (make it visible)
     client.map_window(window.wid);
 
     thread::sleep(time::Duration::from_secs(60*60*60));
