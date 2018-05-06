@@ -20,7 +20,9 @@ pub trait XBufferedWriter {
     fn read_pad(&mut self, len: usize);
     fn read_bool(&mut self) -> bool;
     fn read_u8(&mut self) -> u8;
+    fn read_i16(&mut self) -> i16;
     fn read_u16(&mut self) -> u16;
     fn read_u32(&mut self) -> u32;
+    fn read_char(&mut self) -> char;
     fn read_str(&mut self, len: usize) -> String;
 }

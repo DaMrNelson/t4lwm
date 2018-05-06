@@ -23,3 +23,4 @@ Using this to track what I have done in case I ever want to write something abou
         - No more static resource IDs
         - Can now generate IDs
         - I bet the initial connection's length specification is even right...
+    

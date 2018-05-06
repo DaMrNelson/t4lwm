@@ -9,7 +9,7 @@ pub const CONNECT_FAILED: u8 = 0;
 pub const CONNECT_SUCCESS: u8 = 1;
 pub const CONNECT_AUTHENTICATE: u8 = 2;
 
-// Opcodes
+// Request opcodes
 pub const OP_CREATE_WINDOW: u8 = 1;
 pub const OP_CHANGE_WINDOW_ATTRIBUTES: u8 = 2;
 pub const OP_GET_WINDOW_ATTRIBUTES: u8 = 3;
@@ -130,3 +130,59 @@ pub const OP_GET_POINTER_MAPPING: u8 = 117;
 pub const OP_SET_MODIFIER_MAPPING: u8 = 118;
 pub const OP_GET_MODIFIER_MAPPING: u8 = 119;
 pub const OP_NO_OPERATION: u8 = 127;
+
+// Reply opcodes
+pub const REPLY_ERROR: u8 = 0;
+// TODO: What goes here?
+pub const REPLY_KEY_PRESS: u8 = 2;
+pub const REPLY_KEY_RELEASE: u8 = 3;
+pub const REPLY_BUTTON_PRESS: u8 = 4;
+pub const REPLY_BUTTON_RELEASE: u8 = 5;
+pub const REPLY_MOTION_NOTIFY: u8 = 6;
+pub const REPLY_ENTER_NOTIFY: u8 = 7;
+pub const REPLY_LEAVE_NOTIFY: u8 = 8;
+pub const REPLY_FOCUS_IN: u8 = 9;
+pub const REPLY_FOCUS_OUT: u8 = 10;
+pub const REPLY_KEYMAP_NOTIFY: u8 = 11;
+pub const REPLY_EXPOSE: u8 = 12;
+pub const REPLY_GRAPHICS_EXPOSURE: u8 = 13;
+pub const REPLY_NO_EXPOSURE: u8 = 14;
+pub const REPLY_VISIBILITY_NOTIFY: u8 = 15;
+pub const REPLY_CREATE_NOTIFY: u8 = 16;
+pub const REPLY_DESTROY_NOTIFY: u8 = 17;
+pub const REPLY_UNMAP_NOTIFY: u8 = 18;
+pub const REPLY_MAP_NOTIFY: u8 = 19;
+pub const REPLY_MAP_REQUEST: u8 = 20;
+pub const REPLY_REPART_NOTIFY: u8 = 21;
+pub const REPLY_CONFIGURE_NOTIFY: u8 = 22;
+pub const REPLY_CONFIGURE_REQUEST: u8 = 23;
+pub const REPLY_GRAVITY_NOTIFY: u8 = 24;
+pub const REPLY_RESIZE_REQUEST: u8 = 25;
+pub const REPLY_CIRCULATE_NOTIFY: u8 = 26;
+pub const REPLY_CIRCULATE_REQUEST: u8 = 27;
+pub const REPLY_PROPERTY_NOTIFY: u8 = 28;
+pub const REPLY_SELECTION_CLEAR: u8 = 29;
+pub const REPLY_SELECTION_REQUEST: u8 = 30;
+pub const REPLY_SELECTION_NOTIFY: u8 = 31;
+pub const REPLY_COLORMAP_NOTIFY: u8 = 32;
+pub const REPLY_CLIENT_MESSAGE: u8 = 33;
+pub const REPLY_MAPPING_NOTIFY: u8 = 34;
+
+// Error codes
+pub const ERROR_REQUEST: u8 = 1;
+pub const ERROR_VALUE: u8 = 2;
+pub const ERROR_WINDOW: u8 = 3;
+pub const ERROR_PIXMAP: u8 = 4;
+pub const ERROR_ATOM: u8 = 5;
+pub const ERROR_CURSOR: u8 = 6;
+pub const ERROR_FONT: u8 = 7;
+pub const ERROR_MATCH: u8 = 8;
+pub const ERROR_DRAWABLE: u8 = 9;
+pub const ERROR_ACCESS: u8 = 10;
+pub const ERROR_ALLOC: u8 = 11;
+pub const ERROR_COLORMAP: u8 = 12;
+pub const ERROR_G_CONTEXT: u8 = 13;
+pub const ERROR_ID_CHOICE: u8 = 14;
+pub const ERROR_NAME: u8 = 15;
+pub const ERROR_LENGTH: u8 = 16;
+pub const ERROR_IMPLEMENTATION: u8 = 17;

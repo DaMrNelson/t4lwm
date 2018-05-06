@@ -238,6 +238,326 @@ impl Visual {
     }
 }
 
+#[derive(Debug)]
+pub enum ServerError {
+    Request { sequence_number: u16, minor_opcode: u16, major_opcode: u8 },
+    Value { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_value: u32 },
+    Window { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_resource_id: u32, },
+    Pixmap { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_resource_id: u32 },
+    Atom { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_atom_id: u32 },
+    Cursor { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_resource_id: u32 },
+    Font { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_resource_id: u32 },
+    Match { sequence_number: u16, minor_opcode: u16, major_opcode: u8 },
+    Drawable { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_resource_id: u32 },
+    Access { sequence_number: u16, minor_opcode: u16, major_opcode: u8 },
+    Alloc { sequence_number: u16, minor_opcode: u16, major_opcode: u8 },
+    Colormap { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_resource_id: u32 },
+    GContext { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_resource_id: u32 },
+    IDChoice { sequence_number: u16, minor_opcode: u16, major_opcode: u8, bad_resource_id: u32 },
+    Name { sequence_number: u16, minor_opcode: u16, major_opcode: u8 },
+    Length { sequence_number: u16, minor_opcode: u16, major_opcode: u8 },
+    Implementation { sequence_number: u16, minor_opcode: u16, major_opcode: u8 }
+}
+
+#[derive(Debug)]
+pub enum ServerEvent {
+    KeyPress {
+        key_code: u8,
+        sequence_number: u16,
+        time: u32,
+        root: u32,
+        event: u32,
+        child: u32,
+        root_x: i16,
+        root_y: i16,
+        event_x: i16,
+        event_y: i16,
+        state: Vec<KeyButton>,
+        same_screen: bool
+    },
+    KeyRelease {
+        key_code: u8,
+        sequence_number: u16,
+        time: u32,
+        root: u32,
+        event: u32,
+        child: u32,
+        root_x: i16,
+        root_y: i16,
+        event_x: i16,
+        event_y: i16,
+        state: Vec<KeyButton>,
+        same_screen: bool
+    },
+    ButtonPress {
+        button: u8,
+        sequence_number: u16,
+        time: u32,
+        root: u32,
+        event: u32,
+        child: u32,
+        root_x: i16,
+        root_y: i16,
+        event_x: i16,
+        event_y: i16,
+        state: Vec<KeyButton>,
+        same_screen: bool
+    },
+    ButtonRelease {
+        button: u8,
+        sequence_number: u16,
+        time: u32,
+        root: u32,
+        event: u32,
+        child: u32,
+        root_x: i16,
+        root_y: i16,
+        event_x: i16,
+        event_y: i16,
+        state: Vec<KeyButton>,
+        same_screen: bool
+    },
+    MotionNotify {
+        detail: MotionNotifyType,
+        sequence_number: u16,
+        time: u32,
+        root: u32,
+        event: u32,
+        child: u32,
+        root_x: i16,
+        root_y: i16,
+        event_x: i16,
+        event_y: i16,
+        state: Vec<KeyButton>,
+        same_screen: bool
+    },
+    EnterNotify {
+        detail: NotifyType,
+        sequence_number: u16,
+        time: u32,
+        root: u32,
+        event: u32,
+        child: u32,
+        root_x: i16,
+        root_y: i16,
+        event_x: i16,
+        event_y: i16,
+        state: Vec<KeyButton>,
+        mode: NotifyMode,
+        same_screen: bool,
+        focus: bool
+    },
+    LeaveNotify {
+        detail: NotifyType,
+        sequence_number: u16,
+        time: u32,
+        root: u32,
+        event: u32,
+        child: u32,
+        root_x: i16,
+        root_y: i16,
+        event_x: i16,
+        event_y: i16,
+        state: Vec<KeyButton>,
+        mode: NotifyMode,
+        same_screen: bool,
+        focus: bool
+    },
+    FocusIn {
+        detail: FocusType,
+        sequence_number: u16,
+        event: u32,
+        mode: FocusMode
+    },
+    FocusOut {
+        detail: FocusType,
+        sequence_number: u16,
+        event: u32,
+        mode: FocusMode
+    },
+    KeymapNotify {
+        // TODO: Implement it
+    },
+    Expose {
+        sequence_number: u16,
+        window: u32,
+        x: u16,
+        y: u16,
+        width: u16,
+        height: u16,
+        count: u16
+    },
+    GraphicsExposure {
+        sequence_number: u16,
+        drawable: u32,
+        x: u16,
+        y: u16,
+        width: u16,
+        height: u16,
+        minor_opcode: u16,
+        count: u16,
+        major_opcode: u8
+    },
+    NoExposure {
+        sequence_number: u16,
+        drawable: u32,
+        minor_opcode: u16,
+        major_opcode: u8
+    },
+    VisibilityNotify {
+        sequence_number: u16,
+        window: u32,
+        state: VisibilityState
+    },
+    CreateNotify {
+        sequence_number: u16,
+        parent: u32,
+        window: u32,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+        border_width: u16,
+        override_redirect: bool
+    },
+    DestroyNotify {
+        sequence_number: u16,
+        event: u32,
+        window: u32
+    },
+    UnmapNotify {
+        sequence_number: u16,
+        event: u32,
+        window: u32,
+        from_configure: bool
+    },
+    MapNotify {
+        sequence_number: u16,
+        event: u32,
+        window: u32,
+        override_redirect: bool
+    },
+    MapRequest {
+        sequence_number: u16,
+        parent: u32,
+        window: u32
+    },
+    ReparentNotify {
+        sequence_number: u16,
+        event: u32,
+        window: u32,
+        parent: u32,
+        x: i16,
+        y: i16,
+        override_redirect: bool
+    },
+    ConfigureNotify {
+        sequence_number: u16,
+        event: u32,
+        window: u32,
+        above_sibling: u32,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+        border_width: u16,
+        override_redirect: bool
+    },
+    ConfigureRequest {
+        stack_mode: StackMode,
+        sequence_number: u16,
+        parent: u32,
+        window: u32,
+        sibling: u32,
+        x: i16,
+        y: i16,
+        width: u16,
+        height: u16,
+        border_width: u16,
+        values: Vec<ConfigureRequestValues>
+    },
+    GravityNotify {
+        sequence_number: u16,
+        event: u32,
+        window: u32,
+        x: i16,
+        y: i16
+    },
+    ResizeRequest {
+        sequence_number: u16,
+        window: u32,
+        width: u16,
+        height: u16
+    },
+    CirculateNotify {
+        sequence_number: u16,
+        event: u32,
+        window: u32,
+        place: CirculatePlace
+    },
+    CirculateRequest {
+        sequence_number: u16,
+        parent: u32,
+        window: u32,
+        place: CirculatePlace
+    },
+    PropertyNotify {
+        sequence_number: u16,
+        window: u32,
+        atom: u32,
+        time: u32,
+        state: PropertyState
+    },
+    SelectionClear {
+        sequence_number: u16,
+        time: u32,
+        owner: u32,
+        selection: u32
+    },
+    SelectionRequest {
+        sequence_number: u16,
+        time: u32,
+        owner: u32,
+        requestor: u32,
+        selection: u32,
+        target: u32,
+        property: u32
+    },
+    SelectionNotify {
+        sequence_number: u16,
+        time: u32,
+        requestor: u32,
+        selection: u32,
+        target: u32,
+        property: u32
+    },
+    ColormapNotify {
+        sequence_number: u16,
+        window: u32,
+        colormap: u32,
+        new: bool,
+        state: ColormapState
+    },
+    ClientMessage {
+        format: u8,
+        sequence_number: u16,
+        window: u32,
+        mtype: u32
+    },
+    MappingNotify {
+        sequence_number: u16,
+        request: MappingType,
+        first_keycode: char,
+        count: u8
+    }
+    // TODO: Continue at FocusIn
+}
+
+pub enum ServerResponse {
+    Error(ServerError),
+    Event(ServerEvent)
+}
+
 
 ////////////////////////////////////////
 /// VALUED
@@ -683,6 +1003,309 @@ impl Valued for GCArcMode {
             &GCArcMode::Chord => 0,
 	        &GCArcMode::PieSlice => 1
         }
+    }
+}
+
+#[derive(Debug)]
+pub enum MotionNotifyType {
+    Normal,
+    Hint
+}
+impl MotionNotifyType {
+    pub fn get(id: u8) -> Option<MotionNotifyType> {
+        match id {
+            0 => Some(MotionNotifyType::Normal),
+            1 => Some(MotionNotifyType::Hint),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum NotifyType {
+    Ancestor,
+    Virtual,
+    Inferior,
+    Nonlinear,
+    NonlinearVirtual
+}
+impl NotifyType {
+    pub fn get(id: u8) -> Option<NotifyType> {
+        match id {
+            0 => Some(NotifyType::Ancestor),
+            1 => Some(NotifyType::Virtual),
+            2 => Some(NotifyType::Inferior),
+            3 => Some(NotifyType::Nonlinear),
+            4 => Some(NotifyType::NonlinearVirtual),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum FocusType {
+    Ancestor,
+    Virtual,
+    Inferior,
+    Nonlinear,
+    NonlinearVirtual,
+    Pointer,
+    PointerRoot,
+    None
+}
+impl FocusType {
+    pub fn get(id: u8) -> Option<FocusType> {
+        match id {
+            0 => Some(FocusType::Ancestor),
+            1 => Some(FocusType::Virtual),
+            2 => Some(FocusType::Inferior),
+            3 => Some(FocusType::Nonlinear),
+            4 => Some(FocusType::NonlinearVirtual),
+            5 => Some(FocusType::Pointer),
+            6 => Some(FocusType::PointerRoot),
+            7 => Some(FocusType::None),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum FocusMode {
+    Normal,
+    Grab,
+    Ungrab,
+    WhileGrabbed
+}
+impl FocusMode {
+    pub fn get(id: u8) -> Option<FocusMode> {
+        match id {
+            0 => Some(FocusMode::Normal),
+            1 => Some(FocusMode::Grab),
+            2 => Some(FocusMode::Ungrab),
+            3 => Some(FocusMode::WhileGrabbed),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum NotifyMode {
+    Normal,
+    Grab,
+    Ungrab
+}
+impl NotifyMode {
+    pub fn get(id: u8) -> Option<NotifyMode> {
+        match id {
+            0 => Some(NotifyMode::Normal),
+            1 => Some(NotifyMode::Grab),
+            2 => Some(NotifyMode::Ungrab),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum VisibilityState {
+    Unobscured,
+    PartiallyObscured,
+    FullyObscured
+}
+impl VisibilityState {
+    pub fn get(id: u8) -> Option<VisibilityState> {
+        match id {
+            0 => Some(VisibilityState::Unobscured),
+            1 => Some(VisibilityState::PartiallyObscured),
+            2 => Some(VisibilityState::FullyObscured),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum StackMode {
+    Above,
+    Below,
+    TopIf,
+    BottomIf,
+    Opposite
+}
+impl StackMode {
+    pub fn get(id: u8) -> Option<StackMode> {
+        match id {
+            0 => Some(StackMode::Above),
+            1 => Some(StackMode::Below),
+            2 => Some(StackMode::TopIf),
+            3 => Some(StackMode::BottomIf),
+            4 => Some(StackMode::Opposite),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ConfigureRequestValues {
+    X,
+    Y,
+    Width,
+    Height,
+    BorderWidth,
+    Sibling,
+    StackMode
+}
+impl ConfigureRequestValues {
+    pub fn get(mask: u16) -> Vec<ConfigureRequestValues> {
+        let mut v = vec![];
+        
+        if mask & 0x0001 == 0x0001 {
+            v.push(ConfigureRequestValues::X);
+        }
+        if mask & 0x0002 == 0x0002 {
+            v.push(ConfigureRequestValues::Y);
+        }
+        if mask & 0x0004 == 0x0004 {
+            v.push(ConfigureRequestValues::Width);
+        }
+        if mask & 0x0008 == 0x0008 {
+            v.push(ConfigureRequestValues::Height);
+        }
+        if mask & 0x0010 == 0x0010 {
+            v.push(ConfigureRequestValues::BorderWidth);
+        }
+        if mask & 0x0020 == 0x0020 {
+            v.push(ConfigureRequestValues::Sibling);
+        }
+        if mask & 0x0040 == 0x0040 {
+            v.push(ConfigureRequestValues::StackMode);
+        }
+        
+        return v;
+    }
+}
+
+#[derive(Debug)]
+pub enum CirculatePlace {
+    Top,
+    Bottom
+}
+impl CirculatePlace {
+    pub fn get(id: u8) -> Option<CirculatePlace> {
+        match id {
+            0 => Some(CirculatePlace::Top),
+            1 => Some(CirculatePlace::Bottom),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum PropertyState {
+    NewValue,
+    Deleted
+}
+impl PropertyState {
+    pub fn get(id: u8) -> Option<PropertyState> {
+        match id {
+            0 => Some(PropertyState::NewValue),
+            1 => Some(PropertyState::Deleted),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ColormapState {
+    Uninstalled,
+    Installed
+}
+impl ColormapState {
+    pub fn get(id: u8) -> Option<ColormapState> {
+        match id {
+            0 => Some(ColormapState::Uninstalled),
+            1 => Some(ColormapState::Installed),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum MappingType {
+    Modifier,
+    Keyboard,
+    Pointer
+}
+impl MappingType {
+    pub fn get(id: u8) -> Option<MappingType> {
+        match id {
+            0 => Some(MappingType::Modifier),
+            1 => Some(MappingType::Keyboard),
+            2 => Some(MappingType::Pointer),
+            _ => None
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum KeyButton {
+    Shift,
+    Lock,
+    Control,
+    Mod1,
+    Mod2,
+    Mod3,
+    Mod4,
+    Mod5,
+    Button1,
+    Button2,
+    Button3,
+    Button4,
+    Button5
+}
+impl KeyButton {
+    pub fn get(mask: u16) -> Vec<KeyButton> {
+        let mut v = vec![];
+        
+        if mask & 0x0001 == 0x0001 {
+            v.push(KeyButton::Shift);
+        }
+        if mask & 0x0002 == 0x0002 {
+            v.push(KeyButton::Lock);
+        }
+        if mask & 0x0004 == 0x0004 {
+            v.push(KeyButton::Control);
+        }
+        if mask & 0x0008 == 0x0008 {
+            v.push(KeyButton::Mod1);
+        }
+        if mask & 0x0010 == 0x0010 {
+            v.push(KeyButton::Mod2);
+        }
+        if mask & 0x0020 == 0x0020 {
+            v.push(KeyButton::Mod3);
+        }
+        if mask & 0x0040 == 0x0040 {
+            v.push(KeyButton::Mod4);
+        }
+        if mask & 0x0080 == 0x0080 {
+            v.push(KeyButton::Mod5);
+        }
+        if mask & 0x0100 == 0x0100 {
+            v.push(KeyButton::Button1);
+        }
+        if mask & 0x0200 == 0x0200 {
+            v.push(KeyButton::Button2);
+        }
+        if mask & 0x0400 == 0x0400 {
+            v.push(KeyButton::Button3);
+        }
+        if mask & 0x0800 == 0x0800 {
+            v.push(KeyButton::Button4);
+        }
+        if mask & 0x1000 == 0x1000 {
+            v.push(KeyButton::Button5);
+        }
+        
+        return v;
     }
 }
 

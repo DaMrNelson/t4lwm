@@ -3,8 +3,6 @@ mod xrs;
 use xrs::XClient;
 use xrs::models::*;
 
-use std::{thread, time};
-
 fn main() {
     // Connect
     //let mut client = XClient::new(String::from("/tmp/.X11-unix/X1"));
@@ -65,5 +63,15 @@ fn main() {
     // Map the window (make it visible)
     client.map_window(window.wid);
 
-    thread::sleep(time::Duration::from_secs(60*60*60));
+    // Main event loop
+    loop {
+        match client.wait_for_message() {
+            ServerResponse::Error(error) => {
+                println!("Got error: {:?}", error);
+            },
+            ServerResponse::Event(event) => {
+                println!("Got event: {:?}", event);
+            }
+        }
+    }
 }
