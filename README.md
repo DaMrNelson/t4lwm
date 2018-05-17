@@ -2,6 +2,12 @@
 Tiled 4 Life Window Manager
 A window manager I am writing to help me learn Rust. Uses XRB (X Rust Bindings) for a pure rust implementation.
 
+# How To Run / Develop
+1. git clone https://github.com/DaMrNelson/t4lwm # This repo
+2. git clone https://github.com/DaMrNelson/xrb # X11 bindings, still in development
+3. cd t4lwm
+4. cargo run
+
 # TODO
 - Display window with title
 - Tile
