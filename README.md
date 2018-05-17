@@ -2,9 +2,6 @@
 Tiled 4 Life Window Manager
 A window manager I am writing to help me learn Rust. Uses XRB (X Rust Bindings) for a pure rust implementation.
 
-Not much happening here right now, since I am still focusing on getting XRB working.
-XRB will probably be used as a crate and not packaged in in the future. Right now it is just too convenient to keep it here, though.
-
 # TODO
 - Display window with title
 - Tile

@@ -6,3 +6,5 @@ authors = ["Nelson Schramm <nelson@nshramm.com>"]
 [dependencies]
 bufstream = "0.1.3"
 
+[dependencies.xrb]
+path = "../xrb"
