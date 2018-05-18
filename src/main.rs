@@ -8,6 +8,39 @@ fn main() {
     //let mut client = XClient::new(String::from("/tmp/.X11-unix/X1"));
     let mut client = XClient::connect(String::from("/tmp/.X11-unix/X9"));
 
+    // Subscribe to all events
+    let root_id = client.info.screens[0].root;
+    let mut root = match Window::get_sync(&mut client, root_id) {
+        Ok(win) => win,
+        Err(err) => panic!("Failed to subscribe to root pane: {:?}", err)
+    };
+    println!("Got root: {:?}", root);
+    root.set(&mut client, WindowValue::EventMask(
+        //Event::ButtonPress.val() |
+        //Event::ButtonRelease.val() |
+        //Event::EnterWindow.val() |
+        //Event::LeaveWindow.val() |
+        //Event::PointerMotion.val() |
+        //Event::PointerMotionHint.val() |
+        //Event::Button1Motion.val() |
+        //Event::Button2Motion.val() |
+        //Event::Button3Motion.val() |
+        //Event::Button4Motion.val() |
+        //Event::Button5Motion.val() |
+        //Event::ButtonMotion.val() |
+        //Event::KeymapState.val() |
+        //Event::Exposure.val() |
+        //Event::VisibilityChange.val() |
+        //Event::StructureNotify.val() |
+        //Event::ResizeRedirect.val() |
+        //Event::SubstructureNotify.val() |
+        Event::SubstructureRedirect.val()// |
+        //Event::FocusChange.val() |
+        //Event::PropertyChange.val() |
+        //Event::ColormapChange.val() |
+        //Event::OwnerGrabButton.val()
+    ));
+
     ///////////////////////////////////
     //// TESTING
     ///////////////////////////////////
@@ -37,7 +70,7 @@ fn main() {
     client.create_gc(&gc);
     let gcid = gc.gcid;
 
-    // Draw backgorund and some arcs
+    // Draw background and some arcs
     pixmap.fill_rect(&mut client, gcid, Rectangle { x: 0, y: 0, width: bgsize, height: bgsize });
     //client.poly_fill_rectangle(pixmap.pid, gcid, &vec![Rectangle { x: 0, y: 0, width: bgsize, height: bgsize }]);
     let white = client.info.screens[0].white_pixel;
@@ -122,6 +155,60 @@ fn main() {
             },
             ServerResponse::Event(event, sequence_number) => {
                 println!("Got event {}: {:?}", sequence_number, event);
+                match event {
+                    ServerEvent::MapRequest { parent, window } => {
+                        // Get the windows
+                        let parent = Window::get_sync(&mut client, parent).unwrap();
+                        let window = Window::get_sync(&mut client, window).unwrap();
+
+                        // Create wrapper background
+                        // TODO: Store this when we actually get to doing this properly (for when the window gets resized and stuff, so we don't have to recreate it)
+                        // TODO: Create another graphics context? Or nah?
+                        gc.set_fg(&mut client, &Color::from_num(0xFF9933));
+                        let window_top = Pixmap {
+                            depth: client.info.screens[0].root_depth,
+                            pid: client.new_resource_id(),
+                            drawable: client.info.screens[0].root,
+                            width: window.width,
+                            height: window.height + 20
+                        };
+                        client.create_pixmap(&window_top);
+                        window_top.fill_rect(&mut client, gcid, Rectangle {
+                            x: 0,
+                            y: 0,
+                            width: window.width,
+                            height: 20
+                        });
+
+                        // Create wrapper
+                        let wrapper = Window {
+                            depth: window.depth,
+                            wid: client.new_resource_id(),
+                            parent: parent.wid,
+                            x: window.x,
+                            y: window.y,
+                            width: window.width,
+                            height: window.height + 20,
+                            border_width: 0,
+                            class: window.class,
+                            visual_id: 0, // CopyFromParent
+                            values: vec![
+                                WindowValue::BackgroundPixmap(window_top.pid),
+                                WindowValue::Colormap(0x0),
+                                WindowValue::EventMask(
+                                    Event::Button1Motion.val()
+                                )
+                            ]
+                        };
+                        client.create_window(&wrapper); // TODO: Window.register or something
+
+                        // Put window inside wrapper and map
+                        client.reparent_window(window.wid, wrapper.wid, 0, 20); // TODO: Window.reparent
+                        client.map_window(wrapper.wid); // TODO: Window.map
+                        client.map_window(window.wid);
+                    },
+                    _ => ()
+                };
             }
         }
     }
