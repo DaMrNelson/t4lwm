@@ -159,7 +159,7 @@ fn main() {
                     ServerEvent::MapRequest { parent, window } => {
                         // Get the windows
                         let parent = Window::get_sync(&mut client, parent).unwrap();
-                        let window = Window::get_sync(&mut client, window).unwrap();
+                        let mut window = Window::get_sync(&mut client, window).unwrap();
 
                         // Create wrapper background
                         // TODO: Store this when we actually get to doing this properly (for when the window gets resized and stuff, so we don't have to recreate it)
@@ -203,9 +203,9 @@ fn main() {
                         client.create_window(&wrapper); // TODO: Window.register or something
 
                         // Put window inside wrapper and map
-                        client.reparent_window(window.wid, wrapper.wid, 0, 20); // TODO: Window.reparent
-                        client.map_window(wrapper.wid); // TODO: Window.map
-                        client.map_window(window.wid);
+                        window.reparent(&mut client, wrapper.wid, 0, 20);
+                        window.map(&mut client);
+                        wrapper.map(&mut client);
                     },
                     _ => ()
                 };
