@@ -11,6 +11,7 @@ pub struct WindowManager {
     current_workspace: usize,
     gc: GraphicsContext,
     settings: Settings,
+    ATOM__NET_WM_NAME: u32
 }
 impl WindowManager {
 
@@ -19,6 +20,18 @@ impl WindowManager {
      * client should already be authenticated. This will set the bitmask.
      */
     pub fn new(mut client: XClient) -> WindowManager {
+        // Create WM name atom
+        let seq = client.intern_atom(&"_NET_WM_NAME", false);
+        let ATOM__NET_WM_NAME = match client.wait_for_response(seq) {
+            ServerResponse::Error(err, _) => panic!("Failed to get _NET_WM_NAME atom"),
+            ServerResponse::Reply(reply, _) => match reply {
+                ServerReply::InternAtom { atom }
+                    => atom,
+                _ => unreachable!()
+            },
+            _ => unreachable!()
+        };
+
         // Create the graphics context
         let root = client.info.screens[0].root;
         let black = client.info.screens[0].black_pixel;
@@ -38,7 +51,7 @@ impl WindowManager {
             Err(err) => panic!("Failed to subscribe to root pane: {:?}", err)
         };
         root.set_multiple(&mut client, vec![
-            WindowValue::EventMask(Event::KeyPress.val() | Event::SubstructureRedirect.val() | Event::FocusChange.val() | Event::PropertyChange.val()) // TODO: Should this be done per-window?
+            WindowValue::EventMask(Event::KeyPress.val() | Event::SubstructureRedirect.val() | Event::FocusChange.val())
         ]);
 
         // Create the manager
@@ -48,7 +61,8 @@ impl WindowManager {
             workspaces: workspaces,
             current_workspace: 0,
             gc,
-            settings: Settings::default()
+            settings: Settings::default(),
+            ATOM__NET_WM_NAME
         };
 
         // Create initial workspaces
@@ -67,21 +81,10 @@ impl WindowManager {
         {
             let workspace = &mut self.workspaces[self.current_workspace];
 
-            // Create the background (no contents; it will be filled during tile())
-            let bg = Pixmap { // TODO: Pixmap::create
-                depth: workspace.window.depth,
-                pid: self.client.new_resource_id(),
-                drawable: workspace.window.wid,
-                width: window.width,
-                height: window.height + 20
-            };
-            self.client.create_pixmap(&bg);
-
             // Create wrapper
             let wrapper = Window::create(
                 &mut self.client,
-                //parent.wid,
-                workspace.window.wid,
+                workspace.window.wid,//parent.wid,
                 window.depth,
                 window.x,
                 window.y,
@@ -91,13 +94,15 @@ impl WindowManager {
                 window.class,
                 0, // CopyFromParent
                 vec![
-                    WindowValue::BackgroundPixmap(bg.pid),
                     WindowValue::Colormap(0x0),
                     WindowValue::EventMask(
-                        Event::Button1Motion.val()
+                        Event::Button1Motion.val() | Event::Exposure.val()
                     )
                 ]
             );
+            
+            // List to some events for the window
+            window.set(&mut self.client, WindowValue::EventMask(Event::PropertyChange.val()));
 
             // Put window inside wrapper and map
             window.reparent(&mut self.client, wrapper.wid, 0, 20);
@@ -105,21 +110,14 @@ impl WindowManager {
             wrapper.map(&mut self.client);
 
             // Get the window's name
-            let name = match window.get_string_sync(&mut self.client, DefaultAtom::WmName.val(), 200) {
-                Some(name) => {
-                    name
-                },
-                None => String::from("")
-            };
-            println!("Window has name: {}", name);
+            let name = window.get_wm_name_sync(&mut self.client, self.ATOM__NET_WM_NAME);
 
             // Add to list of windows
             workspace.windows.push(ManagedWindow {
                 window,
                 wrapper,
                 parent,
-                name,
-                bg
+                name
             });
         }
 
@@ -205,76 +203,6 @@ impl WindowManager {
                 let new_width = max_width;
                 let new_height = max_height / count as u16;
 
-                // New pixmap
-                self.client.free_pixmap(wrapped.bg.pid);
-                let bg = Pixmap { // TODO: Pixmap::create
-                    depth: workspace.window.depth,
-                    pid: self.client.new_resource_id(),
-                    drawable: workspace.window.wid,
-                    width: new_width,
-                    height: new_height
-                };
-                self.client.create_pixmap(&bg);
-
-                // Title
-                self.gc.set_fg(&mut self.client, &self.settings.win_title_bg);
-                bg.fill_rect(&mut self.client, self.gc.gcid, Rectangle {
-                    x: self.settings.win_title_border_width as i16,
-                    y: self.settings.win_title_border_width as i16,
-                    width: new_width - self.settings.win_title_border_width * 2,
-                    height: 20 - self.settings.win_title_border_width * 2
-                });
-
-                self.gc.set_fg(&mut self.client, &self.settings.win_title_fg);
-                bg.img_text8(&mut self.client, self.gc.gcid, &wrapped.name, 0, 10 );
-
-                let border_width = self.settings.win_title_border_width;
-                if border_width > 0 {
-                    self.gc.set_fg(&mut self.client, &self.settings.win_title_border_color);
-                    let mut rects = Vec::with_capacity(border_width as usize);
-                    
-                    for i in 0..border_width {
-                        rects.push(Rectangle {
-                            x: i as i16,
-                            y: i as i16,
-                            width: new_width - i * 2,
-                            height: 20 - i * 2
-                        });
-                    }
-
-                    bg.draw_rects(&mut self.client, self.gc.gcid, &rects);
-                }
-
-                // Background
-                self.gc.set_fg(&mut self.client, &self.settings.win_bg);
-                bg.fill_rect(&mut self.client, self.gc.gcid, Rectangle {
-                    x: 1,
-                    y: 20 + 1,
-                    width: new_width - 2,
-                    height: new_height - 20
-                });
-
-                let border_width = self.settings.win_border_width;
-                if border_width > 0 {
-                    self.gc.set_fg(&mut self.client, &self.settings.win_border_color);
-                    let mut rects = Vec::with_capacity(border_width as usize);
-                    
-                    for i in 0..border_width {
-                        rects.push(Rectangle {
-                            x: i as i16,
-                            y: i as i16,
-                            width: new_width - i * 2,
-                            height: new_height - i * 2
-                        });
-                    }
-
-                    bg.draw_rects(&mut self.client, self.gc.gcid, &rects);
-                }
-
-                // Apply new background
-                wrapped.wrapper.set(&mut self.client, WindowValue::BackgroundPixmap(bg.pid));
-                wrapped.bg = bg;
-
                 // Resize
                 wrapped.wrapper.configure_multiple(
                     &mut self.client,
@@ -294,6 +222,53 @@ impl WindowManager {
                         WindowConfigureValue::Height(new_height - 20)
                     ]
                 );
+
+                // Send expose event so the display updates
+                self.client.send_event(&ServerEvent::Expose {
+                    window: wrapped.wrapper.wid,
+                    x: 0,
+                    y: 0,
+                    width: wrapped.wrapper.width,
+                    height: wrapped.wrapper.height,
+                    count: 0
+                }, false, wrapped.wrapper.wid, &vec![]);
+            }
+        }
+    }
+
+    /**
+     * Updates a window's name and repaints it.
+     */
+    pub fn update_window_name(&mut self, wid: u32, repaint: bool) {
+        for workspace in self.workspaces.iter_mut() {
+            for wrapped in workspace.windows.iter_mut() {
+                if wrapped.window.wid == wid {
+                    let name = wrapped.window.get_string_sync(&mut self.client, DefaultAtom::WmName.val(), 200);
+                    wrapped.name = match name {
+                        Some(s) => s,
+                        None => continue
+                    };
+
+                    if repaint {
+                        wrapped.paint(&mut self.client, &mut self.gc, workspace.window.wid, workspace.window.depth, &self.settings);
+                    }
+
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Paints a window.
+     */
+    pub fn paint_window(&mut self, wid: u32) {
+        for workspace in self.workspaces.iter_mut() {
+            for wrapped in workspace.windows.iter_mut() {
+                if wrapped.wrapper.wid == wid {
+                    wrapped.paint(&mut self.client, &mut self.gc, workspace.window.wid, workspace.window.depth, &self.settings);
+                    return;
+                }
             }
         }
     }
@@ -303,7 +278,8 @@ impl WindowManager {
      */
     pub fn run(&mut self) {
         loop {
-            match self.client.wait_for_message() {
+            let message = self.client.wait_for_message();
+            match message {
                 ServerResponse::Error(error, sequence_number) => {
                     println!("Got error {}: {:?}", sequence_number, error);
                 },
@@ -341,6 +317,14 @@ impl WindowManager {
                                 }
                             }
                         },
+                        ServerEvent::PropertyNotify { window, atom, time, state } => {
+                            if atom == DefaultAtom::WmName.val() || atom == self.ATOM__NET_WM_NAME {
+                                self.update_window_name(window, true);
+                            }
+                        },
+                        ServerEvent::Expose { window, x, y, width, height, count } => {
+                            self.paint_window(window);
+                        }
                         _ => () // TODO: More events
                     };
                 }
@@ -361,5 +345,62 @@ pub struct ManagedWindow {
     wrapper: Window,
     parent: Window,
     name: String,
-    bg: Pixmap
+}
+impl ManagedWindow {
+    pub fn paint(&mut self, client: &mut XClient, gc: &mut GraphicsContext, workspace_wid: u32, workspace_depth: u8, settings: &Settings) {
+        // Title
+        gc.set_fg(client, &settings.win_title_bg);
+        self.wrapper.fill_rect(client, gc.gcid, Rectangle {
+            x: settings.win_title_border_width as i16,
+            y: settings.win_title_border_width as i16,
+            width: self.wrapper.width - settings.win_title_border_width * 2,
+            height: 20 - settings.win_title_border_width * 2
+        });
+
+        gc.set_fg(client, &settings.win_title_fg);
+        self.wrapper.img_text8(client, gc.gcid, &self.name, 0, 10 );
+
+        let border_width = settings.win_title_border_width;
+        if border_width > 0 {
+            gc.set_fg(client, &settings.win_title_border_color);
+            let mut rects = Vec::with_capacity(border_width as usize);
+            
+            for i in 0..border_width {
+                rects.push(Rectangle {
+                    x: i as i16,
+                    y: i as i16,
+                    width: self.wrapper.width - i * 2,
+                    height: 20 - i * 2
+                });
+            }
+
+            self.wrapper.draw_rects(client, gc.gcid, &rects);
+        }
+
+        // Background
+        gc.set_fg(client, &settings.win_bg);
+        self.wrapper.fill_rect(client, gc.gcid, Rectangle {
+            x: 1,
+            y: 20 + 1,
+            width: self.wrapper.width - 2,
+            height: self.wrapper.height - 20
+        });
+
+        let border_width = settings.win_border_width;
+        if border_width > 0 {
+            gc.set_fg(client, &settings.win_border_color);
+            let mut rects = Vec::with_capacity(border_width as usize);
+            
+            for i in 0..border_width {
+                rects.push(Rectangle {
+                    x: i as i16,
+                    y: i as i16,
+                    width: self.wrapper.width - i * 2,
+                    height: self.wrapper.height - i * 2
+                });
+            }
+
+            self.wrapper.draw_rects(client, gc.gcid, &rects);
+        }
+    }
 }
