@@ -96,7 +96,7 @@ impl WindowManager {
                 vec![
                     WindowValue::Colormap(0x0),
                     WindowValue::EventMask(
-                        Event::Button1Motion.val() | Event::Exposure.val()
+                        Event::Button1Motion.val() | Event::Exposure.val() | Event::SubstructureNotify.val()
                     )
                 ]
             );
@@ -154,7 +154,9 @@ impl WindowManager {
                 0,
                 WindowInputType::CopyFromParent,
                 visual,
-                vec![]
+                vec![
+                    WindowValue::EventMask(Event::Exposure.val())
+                ]
             ),
             windows: vec![]
         });
@@ -260,16 +262,60 @@ impl WindowManager {
     }
 
     /**
-     * Paints a window.
+     * Paints the wrapper for a managed window
      */
     pub fn paint_window(&mut self, wid: u32) {
         for workspace in self.workspaces.iter_mut() {
+            if workspace.window.wid == wid {
+                workspace.paint_background(&mut self.client, &mut self.gc, &self.settings);
+            }
+
             for wrapped in workspace.windows.iter_mut() {
                 if wrapped.wrapper.wid == wid {
                     wrapped.paint(&mut self.client, &mut self.gc, workspace.window.wid, workspace.window.depth, &self.settings);
                     return;
                 }
             }
+        }
+    }
+
+    /**
+     * Unmaps a managed window
+     */
+    pub fn unmap_window(&mut self, wid: u32) {
+        for workspace in self.workspaces.iter_mut() {
+            for wrapped in workspace.windows.iter_mut() {
+                if wrapped.wrapper.wid == wid {
+                    wrapped.wrapper.unmap(&mut self.client);
+                }
+            }
+        }
+    }
+
+    /**
+     * Destroys a managed window
+     */
+    pub fn destroy_window(&mut self, wid: u32) {
+        let mut workspace_index = usize::max_value();
+        let mut wrapped_index = usize::max_value();
+
+        for (i, workspace) in self.workspaces.iter_mut().enumerate() {
+            for (j, wrapped) in workspace.windows.iter_mut().enumerate() {
+                if wrapped.window.wid == wid {
+                    wrapped.wrapper.destroy(&mut self.client);
+                    workspace_index = i;
+                    wrapped_index = j;
+                    break;
+                }
+            }
+
+            if workspace_index != usize::max_value() {
+                break;
+            }
+        }
+
+        if workspace_index != usize::max_value() {
+            self.workspaces[workspace_index].windows.remove(wrapped_index);
         }
     }
 
@@ -324,7 +370,13 @@ impl WindowManager {
                         },
                         ServerEvent::Expose { window, x, y, width, height, count } => {
                             self.paint_window(window);
-                        }
+                        },
+                        ServerEvent::UnmapNotify { event, window, from_configure } => {
+                            self.unmap_window(window);
+                        },
+                        ServerEvent::DestroyNotify { event, window } => {
+                            self.destroy_window(window);
+                        },
                         _ => () // TODO: More events
                     };
                 }
@@ -338,6 +390,17 @@ pub struct Workspace {
     id: u32,
     window: Window,
     windows: Vec<ManagedWindow>
+}
+impl Workspace {
+    pub fn paint_background(&self, client: &mut XClient, gc: &mut GraphicsContext, settings: &Settings) {
+        gc.set_fg(client, &settings.background_color);
+        self.window.fill_rect(client, gc.gcid, Rectangle {
+            x: 0,
+            y: 0,
+            width: self.window.width,
+            height: self.window.height
+        });
+    }
 }
 
 pub struct ManagedWindow {
