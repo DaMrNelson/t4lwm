@@ -121,6 +121,16 @@ impl Tiled {
 
         if index != usize::max_value() {
             self.children.remove(index);
+
+            if self.children.len() == 1 {
+                if self.children[0].is_tiled() {
+                    let mut child = self.children.remove(0).unwrap_tiled();
+                    for _ in 0..child.children.len() {
+                        self.children.push(child.children.remove(0));
+                    }
+                }
+            }
+
             self.mark_dirty();
             return true;
         }
@@ -159,6 +169,48 @@ impl Tiled {
                 }
             };
         }
+        return None;
+    }
+
+    /** Returns the currently focused Window, or None */
+    pub fn get_focused(&self) -> Option<&ManagedWindow> {
+        for win in self.children.iter() {
+            match win {
+                TiledChild::Window(wrapped) => {
+                    if wrapped.focused {
+                        return Some(&wrapped);
+                    }
+                },
+                TiledChild::Tiled(tiled) => {
+                    let res = tiled.get_focused();
+                    if res.is_some() {
+                        return res;
+                    }
+                }
+            }
+        }
+
+        return None;
+    }
+
+    /** Returns the currently focused Window, or None */
+    pub fn get_focused_mut(&mut self) -> Option<&mut ManagedWindow> {
+        for win in self.children.iter_mut() {
+            match win {
+                TiledChild::Window(wrapped) => {
+                    if wrapped.focused {
+                        return Some(wrapped);
+                    }
+                },
+                TiledChild::Tiled(tiled) => {
+                    let res = tiled.get_focused_mut();
+                    if res.is_some() {
+                        return res;
+                    }
+                }
+            }
+        }
+
         return None;
     }
 

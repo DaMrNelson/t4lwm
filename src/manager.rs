@@ -123,6 +123,7 @@ impl WindowManager {
             workspace.tiling.add(ManagedWindow {
                 window,
                 wrapper,
+                focused: false,
                 parent,
                 name
             }, self.tile_direction);
@@ -298,6 +299,28 @@ impl WindowManager {
     }
 
     /**
+     * Returns the currently focused window as a reference
+     */
+    pub fn get_focused(&self) -> Option<&ManagedWindow> {
+        for workspace in self.workspaces.iter() {
+            return workspace.tiling.get_focused();
+        }
+
+        return None;
+    }
+
+    /**
+     * Returns the currently focused window as a mutable reference
+     */
+    pub fn get_focused_mut(&mut self) -> Option<&mut ManagedWindow> {
+        for workspace in self.workspaces.iter_mut() {
+            return workspace.tiling.get_focused_mut();
+        }
+
+        return None;
+    }
+
+    /**
      * Starts listening to the event loop. This function loops forever and will never end.
      */
     pub fn run(&mut self) {
@@ -349,6 +372,22 @@ impl WindowManager {
                                         Ok(_) => (),
                                         Err(err) => println!("Failed to start process! {}", err)
                                     };
+                                } else if key_code == 24 && state.contains(&KeyButton::Shift) { // Kill window: Q
+                                    //println!("Kill it!");
+                                    let mut wid = u32::max_value();
+                                    {
+                                        match self.get_focused() {
+                                            Some(wrapper) => wid = wrapper.window.wid,
+                                            None => ()
+                                        };
+                                    }
+
+                                    if wid != u32::max_value() {
+                                        //println!("Yes");
+                                        self.client.kill_client(wid);
+                                    } else {
+                                        //println!("No");
+                                    }
                                 }
                             }
                         },
@@ -397,6 +436,7 @@ impl Workspace {
 pub struct ManagedWindow {
     pub window: Window,
     pub wrapper: Window,
+    pub focused: bool,
     parent: Window,
     name: String
 }
