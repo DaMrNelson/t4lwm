@@ -1,8 +1,10 @@
 extern crate xrb;
 
-use xrb::models::Color;
+use xrb::models::{Color, KeyButton};
 
 pub struct Settings {
+    pub mod_key: KeyButton,
+
     pub background_color: Color,
 
     pub win_bg: Color,
@@ -17,7 +19,9 @@ pub struct Settings {
 impl Settings {
     pub fn default() -> Settings {
         Settings {
-            background_color: Color::from_num(0x000000),
+            mod_key: KeyButton::Mod4,
+
+            background_color: Color::from_num(0x444444),
 
             win_bg: Color::from_num(0x000000),
             win_border_width: 1,

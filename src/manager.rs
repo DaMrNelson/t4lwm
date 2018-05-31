@@ -4,6 +4,9 @@ use xrb::XClient;
 use xrb::models::*;
 
 use settings::Settings;
+use tiling::{Tiled, TiledDirection, TiledChild};
+
+use std::process::Command;
 
 pub struct WindowManager {
     client: XClient,
@@ -11,6 +14,8 @@ pub struct WindowManager {
     current_workspace: usize,
     gc: GraphicsContext,
     settings: Settings,
+    tile_direction: TiledDirection,
+    display: String, // Passed to spawned processes as DISPLAY
     ATOM__NET_WM_NAME: u32
 }
 impl WindowManager {
@@ -19,7 +24,7 @@ impl WindowManager {
      * Creates a new WindowManager.
      * client should already be authenticated. This will set the bitmask.
      */
-    pub fn new(mut client: XClient) -> WindowManager {
+    pub fn new(mut client: XClient, display: String) -> WindowManager {
         // Create WM name atom
         let seq = client.intern_atom(&"_NET_WM_NAME", false);
         let ATOM__NET_WM_NAME = match client.wait_for_response(seq) {
@@ -62,6 +67,8 @@ impl WindowManager {
             current_workspace: 0,
             gc,
             settings: Settings::default(),
+            tile_direction: TiledDirection::Vertical,
+            display,
             ATOM__NET_WM_NAME
         };
 
@@ -96,7 +103,7 @@ impl WindowManager {
                 vec![
                     WindowValue::Colormap(0x0),
                     WindowValue::EventMask(
-                        Event::Button1Motion.val() | Event::Exposure.val() | Event::SubstructureNotify.val()
+                        Event::Button1Motion.val() | Event::Exposure.val() | Event::SubstructureNotify.val() | Event::KeyPress.val()
                     )
                 ]
             );
@@ -113,12 +120,12 @@ impl WindowManager {
             let name = window.get_wm_name_sync(&mut self.client, self.ATOM__NET_WM_NAME);
 
             // Add to list of windows
-            workspace.windows.push(ManagedWindow {
+            workspace.tiling.add(ManagedWindow {
                 window,
                 wrapper,
                 parent,
                 name
-            });
+            }, self.tile_direction);
         }
 
         // Re-tile
@@ -158,7 +165,7 @@ impl WindowManager {
                     WindowValue::EventMask(Event::Exposure.val())
                 ]
             ),
-            windows: vec![]
+            tiling: Tiled::new_0(self.tile_direction)
         });
 
         let new_index = self.workspaces.len() - 1;
@@ -192,49 +199,11 @@ impl WindowManager {
      * Tiles the registered windows.
      */
     pub fn tile(&mut self) {
-        // TODO: Actually tile well
         for workspace in self.workspaces.iter_mut() {
-            // TODO: Actual window positioning
-            let count = workspace.windows.len();
-            let max_width = workspace.window.width;
-            let max_height = workspace.window.height;
+            //println!("WORKSPACE");
+            //debug_tiled_print(&mut workspace.tiling, 1);
 
-            for (i, wrapped) in workspace.windows.iter_mut().enumerate() {
-                let new_x = 0;
-                let new_y = i as i16 * max_height as i16 / count as i16;
-                let new_width = max_width;
-                let new_height = max_height / count as u16;
-
-                // Resize
-                wrapped.wrapper.configure_multiple(
-                    &mut self.client,
-                    vec![
-                        WindowConfigureValue::X(new_x),
-                        WindowConfigureValue::Y(new_y),
-                        WindowConfigureValue::Width(new_width),
-                        WindowConfigureValue::Height(new_height)
-                    ]
-                );
-                wrapped.window.configure_multiple(
-                    &mut self.client,
-                    vec![
-                        WindowConfigureValue::X(0),
-                        WindowConfigureValue::Y(20),
-                        WindowConfigureValue::Width(new_width),
-                        WindowConfigureValue::Height(new_height - 20)
-                    ]
-                );
-
-                // Send expose event so the display updates
-                self.client.send_event(&ServerEvent::Expose {
-                    window: wrapped.wrapper.wid,
-                    x: 0,
-                    y: 0,
-                    width: wrapped.wrapper.width,
-                    height: wrapped.wrapper.height,
-                    count: 0
-                }, false, wrapped.wrapper.wid, &vec![]);
-            }
+            workspace.tiling.tile(&mut self.client, &mut self.gc, workspace.window.wid, workspace.window.depth, &self.settings, workspace.window.x, workspace.window.y, workspace.window.width, workspace.window.height, false);
         }
     }
 
@@ -243,21 +212,25 @@ impl WindowManager {
      */
     pub fn update_window_name(&mut self, wid: u32, repaint: bool) {
         for workspace in self.workspaces.iter_mut() {
-            for wrapped in workspace.windows.iter_mut() {
-                if wrapped.window.wid == wid {
-                    let name = wrapped.window.get_string_sync(&mut self.client, DefaultAtom::WmName.val(), 200);
-                    wrapped.name = match name {
-                        Some(s) => s,
-                        None => continue
-                    };
+            let res = workspace.tiling.get_window_mut(wid);
+            match res {
+                Some(wrapped) => {
+                    if wrapped.window.wid == wid {
+                        let name = wrapped.window.get_string_sync(&mut self.client, DefaultAtom::WmName.val(), 200);
+                        wrapped.name = match name {
+                            Some(s) => s,
+                            None => continue
+                        };
 
-                    if repaint {
-                        wrapped.paint(&mut self.client, &mut self.gc, workspace.window.wid, workspace.window.depth, &self.settings);
+                        if repaint {
+                            wrapped.paint(&mut self.client, &mut self.gc, workspace.window.wid, workspace.window.depth, &self.settings);
+                        }
+
+                        return;
                     }
-
-                    return;
-                }
-            }
+                },
+                None => ()
+            };
         }
     }
 
@@ -270,12 +243,16 @@ impl WindowManager {
                 workspace.paint_background(&mut self.client, &mut self.gc, &self.settings);
             }
 
-            for wrapped in workspace.windows.iter_mut() {
-                if wrapped.wrapper.wid == wid {
-                    wrapped.paint(&mut self.client, &mut self.gc, workspace.window.wid, workspace.window.depth, &self.settings);
-                    return;
-                }
-            }
+            let res = workspace.tiling.get_window_mut(wid);
+            match res {
+                Some(wrapped) => {
+                    if wrapped.wrapper.wid == wid {
+                        wrapped.paint(&mut self.client, &mut self.gc, workspace.window.wid, workspace.window.depth, &self.settings);
+                        return;
+                    }
+                },
+                None => ()
+            };
         }
     }
 
@@ -284,10 +261,14 @@ impl WindowManager {
      */
     pub fn unmap_window(&mut self, wid: u32) {
         for workspace in self.workspaces.iter_mut() {
-            for wrapped in workspace.windows.iter_mut() {
-                if wrapped.wrapper.wid == wid {
-                    wrapped.wrapper.unmap(&mut self.client);
-                }
+            let res = workspace.tiling.get_window_mut(wid);
+            match res {
+                Some(wrapped) => {
+                    if wrapped.wrapper.wid == wid {
+                        wrapped.wrapper.unmap(&mut self.client);
+                    }
+                },
+                None => ()
             }
         }
     }
@@ -296,26 +277,23 @@ impl WindowManager {
      * Destroys a managed window
      */
     pub fn destroy_window(&mut self, wid: u32) {
-        let mut workspace_index = usize::max_value();
-        let mut wrapped_index = usize::max_value();
+        for workspace in self.workspaces.iter_mut() {
+            let mut matched = false;
 
-        for (i, workspace) in self.workspaces.iter_mut().enumerate() {
-            for (j, wrapped) in workspace.windows.iter_mut().enumerate() {
-                if wrapped.window.wid == wid {
-                    wrapped.wrapper.destroy(&mut self.client);
-                    workspace_index = i;
-                    wrapped_index = j;
-                    break;
-                }
+            {
+                let res = workspace.tiling.get_window_mut(wid);
+                match res {
+                    Some(wrapped) => {
+                        wrapped.wrapper.destroy(&mut self.client);
+                        matched = true;
+                    },
+                    None => ()
+                };
             }
 
-            if workspace_index != usize::max_value() {
-                break;
+            if matched {
+                workspace.tiling.remove(wid);
             }
-        }
-
-        if workspace_index != usize::max_value() {
-            self.workspaces[workspace_index].windows.remove(wrapped_index);
         }
     }
 
@@ -344,22 +322,33 @@ impl WindowManager {
                             self.add_window(window, parent);
                         },
                         ServerEvent::KeyPress { key_code, time, root, event, child, root_x, root_y, event_x, event_y, state, same_screen } => {
-                            // TODO: Actual keybindings
-                            if key_code >= 10 && key_code <= 18 { // No 0 for now
-                                let id = key_code as u32 - 9;
-                                let mut index = self.workspaces.len();
+                            if state.contains(&self.settings.mod_key) { // Windows key
+                                // TODO: Get these bindings from the config
+                                if key_code >= 10 && key_code <= 18 { // Workspaces: 0-9 (no 0 for now)
+                                    let id = key_code as u32 - 9;
+                                    let mut index = self.workspaces.len();
 
-                                for (i, workspace) in self.workspaces.iter().enumerate() {
-                                    if workspace.id == id {
-                                        index = i;
-                                        break;
+                                    for (i, workspace) in self.workspaces.iter().enumerate() {
+                                        if workspace.id == id {
+                                            index = i;
+                                            break;
+                                        }
                                     }
-                                }
 
-                                if index == self.workspaces.len() {
-                                    self.create_workspace(id, 0); // TODO: Use current screen
-                                } else {
-                                    self.set_workspace(index);
+                                    if index == self.workspaces.len() {
+                                        self.create_workspace(id, 0); // TODO: Use current screen
+                                    } else {
+                                        self.set_workspace(index);
+                                    }
+                                } else if key_code == 43 { // Horizontal tiling: H
+                                    self.tile_direction = TiledDirection::Horizontal;
+                                } else if key_code == 55 { // Vertical tiling: V
+                                    self.tile_direction = TiledDirection::Vertical;
+                                } else if key_code == 36 {
+                                    match Command::new("xeyes").env("DISPLAY", self.display.clone()).spawn() {
+                                        Ok(_) => (),
+                                        Err(err) => println!("Failed to start process! {}", err)
+                                    };
                                 }
                             }
                         },
@@ -376,6 +365,7 @@ impl WindowManager {
                         },
                         ServerEvent::DestroyNotify { event, window } => {
                             self.destroy_window(window);
+                            self.tile();
                         },
                         _ => () // TODO: More events
                     };
@@ -389,7 +379,7 @@ impl WindowManager {
 pub struct Workspace {
     id: u32,
     window: Window,
-    windows: Vec<ManagedWindow>
+    tiling: Tiled
 }
 impl Workspace {
     pub fn paint_background(&self, client: &mut XClient, gc: &mut GraphicsContext, settings: &Settings) {
@@ -403,11 +393,12 @@ impl Workspace {
     }
 }
 
+#[derive(Debug)]
 pub struct ManagedWindow {
-    window: Window,
-    wrapper: Window,
+    pub window: Window,
+    pub wrapper: Window,
     parent: Window,
-    name: String,
+    name: String
 }
 impl ManagedWindow {
     pub fn paint(&mut self, client: &mut XClient, gc: &mut GraphicsContext, workspace_wid: u32, workspace_depth: u8, settings: &Settings) {
@@ -465,5 +456,15 @@ impl ManagedWindow {
 
             self.wrapper.draw_rects(client, gc.gcid, &rects);
         }
+    }
+}
+
+fn debug_tiled_print(tiled: &mut Tiled, spacing: usize) {
+    println!("{}TILED", "  ".repeat(spacing));
+    for tile in tiled.children.iter_mut() {
+        match tile {
+            TiledChild::Window(_) => println!("{}WINDOW", "  ".repeat(spacing + 1)),
+            TiledChild::Tiled(child) => debug_tiled_print(child, spacing + 1)
+        };
     }
 }
