@@ -103,7 +103,7 @@ impl WindowManager {
                 vec![
                     WindowValue::Colormap(0x0),
                     WindowValue::EventMask(
-                        Event::Button1Motion.val() | Event::Exposure.val() | Event::SubstructureNotify.val() | Event::KeyPress.val()
+                        Event::Button1Motion.val() | Event::Exposure.val() | Event::SubstructureNotify.val() | Event::KeyPress.val() | Event::EnterWindow.val()
                     )
                 ]
             );
@@ -242,6 +242,7 @@ impl WindowManager {
         for workspace in self.workspaces.iter_mut() {
             if workspace.window.wid == wid {
                 workspace.paint_background(&mut self.client, &mut self.gc, &self.settings);
+                return;
             }
 
             let res = workspace.tiling.get_window_mut(wid);
@@ -299,11 +300,30 @@ impl WindowManager {
     }
 
     /**
+     * Makes the window with the given ID focused, unfocusing any focused windows.
+     * Returns true if a window's state was changed.
+     */
+    pub fn set_focused(&mut self, wid: u32) -> bool {
+        let mut set = false;
+
+        for workspace in self.workspaces.iter_mut() {
+            if workspace.tiling.set_focused(wid) {
+                set = true;
+            }
+        }
+
+        return set;
+    }
+
+    /**
      * Returns the currently focused window as a reference
      */
     pub fn get_focused(&self) -> Option<&ManagedWindow> {
         for workspace in self.workspaces.iter() {
-            return workspace.tiling.get_focused();
+            let focused = workspace.tiling.get_focused();
+            if focused.is_some() {
+                return focused;
+            }
         }
 
         return None;
@@ -314,7 +334,10 @@ impl WindowManager {
      */
     pub fn get_focused_mut(&mut self) -> Option<&mut ManagedWindow> {
         for workspace in self.workspaces.iter_mut() {
-            return workspace.tiling.get_focused_mut();
+            let focused = workspace.tiling.get_focused_mut();
+            if focused.is_some() {
+                return focused;
+            }
         }
 
         return None;
@@ -333,8 +356,8 @@ impl WindowManager {
                 ServerResponse::Reply(reply, sequence_number) => {
                     println!("Got reply {}: {:?}", sequence_number, reply);
                 },
-                ServerResponse::Event(event, sequence_number) => {
-                    println!("Got event {}: {:?}", sequence_number, event);
+                ServerResponse::Event(event, sequence_number, generated) => {
+                    println!("Got event {} (generated: {}): {:?}", sequence_number, generated, event);
                     match event {
                         ServerEvent::MapRequest { parent, window } => {
                             // Get the windows
@@ -342,7 +365,13 @@ impl WindowManager {
                             let mut window = Window::get_sync(&mut self.client, window).unwrap();
                             
                             // Wrap
+                            let wid = window.wid;
                             self.add_window(window, parent);
+                            self.set_focused(wid);
+                        },
+                        ServerEvent::EnterNotify { detail, time, root, event, child, root_x, root_y, event_x, event_y, state, mode, same_screen, focus } => {
+                            self.set_focused(event);
+                            self.tile();
                         },
                         ServerEvent::KeyPress { key_code, time, root, event, child, root_x, root_y, event_x, event_y, state, same_screen } => {
                             if state.contains(&self.settings.mod_key) { // Windows key
@@ -373,7 +402,7 @@ impl WindowManager {
                                         Err(err) => println!("Failed to start process! {}", err)
                                     };
                                 } else if key_code == 24 && state.contains(&KeyButton::Shift) { // Kill window: Q
-                                    //println!("Kill it!");
+                                    println!("Kill it!");
                                     let mut wid = u32::max_value();
                                     {
                                         match self.get_focused() {
@@ -383,10 +412,10 @@ impl WindowManager {
                                     }
 
                                     if wid != u32::max_value() {
-                                        //println!("Yes");
+                                        println!("Yes");
                                         self.client.kill_client(wid);
                                     } else {
-                                        //println!("No");
+                                        println!("No");
                                     }
                                 }
                             }
@@ -442,29 +471,72 @@ pub struct ManagedWindow {
 }
 impl ManagedWindow {
     pub fn paint(&mut self, client: &mut XClient, gc: &mut GraphicsContext, workspace_wid: u32, workspace_depth: u8, settings: &Settings) {
+        println!("Paint! Focused: {}", self.focused);
+
+        // Get values
+        let focused = self.focused; // Just quicker to write
+        let title_bg = if focused {&settings.win_title_bg_focused} else {&settings.win_title_bg};
+        let title_fg = if focused {&settings.win_title_fg_focused} else {&settings.win_title_fg};
+        let title_border_width_l = settings.win_title_border_width_left;
+        let title_border_width_t = settings.win_title_border_width_top;
+        let title_border_width_r = settings.win_title_border_width_right;
+        let title_border_width_b = settings.win_title_border_width_bottom;
+        let title_border_color = if focused {&settings.win_title_border_color_focused} else {&settings.win_title_border_color};
+        let bg = if focused {&settings.win_bg_focused} else {&settings.win_bg};
+        let border_width_l = settings.win_border_width_left;
+        let border_width_t = settings.win_border_width_top;
+        let border_width_r = settings.win_border_width_right;
+        let border_width_b = settings.win_border_width_bottom;
+        let border_color = if focused {&settings.win_border_color_focused} else {&settings.win_border_color};
+
         // Title
-        gc.set_fg(client, &settings.win_title_bg);
+        gc.set_fg(client, title_bg);
         self.wrapper.fill_rect(client, gc.gcid, Rectangle {
-            x: settings.win_title_border_width as i16,
-            y: settings.win_title_border_width as i16,
-            width: self.wrapper.width - settings.win_title_border_width * 2,
-            height: 20 - settings.win_title_border_width * 2
+            x: title_border_width_l as i16,
+            y: title_border_width_l as i16,
+            width: self.wrapper.width - title_border_width_l - title_border_width_r,
+            height: 20 - title_border_width_t - title_border_width_b
         });
 
-        gc.set_fg(client, &settings.win_title_fg);
-        self.wrapper.img_text8(client, gc.gcid, &self.name, 0, 10 );
+        gc.set_fg(client, title_fg);
+        self.wrapper.img_text8(client, gc.gcid, &self.name, 0, 10);
 
-        let border_width = settings.win_title_border_width;
-        if border_width > 0 {
-            gc.set_fg(client, &settings.win_title_border_color);
-            let mut rects = Vec::with_capacity(border_width as usize);
+        let lines = title_border_width_l + title_border_width_t + title_border_width_r + title_border_width_b;
+        if lines > 0 {
+            gc.set_fg(client, title_border_color);
+            let mut rects = Vec::with_capacity(lines as usize);
             
-            for i in 0..border_width {
+            if title_border_width_l > 0 { // Left
                 rects.push(Rectangle {
-                    x: i as i16,
-                    y: i as i16,
-                    width: self.wrapper.width - i * 2,
-                    height: 20 - i * 2
+                    x: 0,
+                    y: 0,
+                    width: title_border_width_l - 1,
+                    height: 20
+                });
+            }
+            if title_border_width_t > 0 { // Top
+                rects.push(Rectangle {
+                    x: 0,
+                    y: 0,
+                    width: self.wrapper.width,
+                    height: title_border_width_t - 1
+                });
+            }
+            if title_border_width_r > 0 { // Right
+                rects.push(Rectangle {
+                    x: self.wrapper.width as i16 - title_border_width_r as i16,
+                    y: 0,
+                    width: title_border_width_r - 1,
+                    height: 20
+                });
+            }
+            if title_border_width_b > 0 { // Bottom
+                rects.push(Rectangle {
+                    x: 0,
+                    y: self.wrapper.height as i16 - title_border_width_b as i16,
+                    width: self.wrapper.width,
+                    //height: title_border_width_b - 1
+                    height: title_border_width_b
                 });
             }
 
@@ -472,25 +544,49 @@ impl ManagedWindow {
         }
 
         // Background
-        gc.set_fg(client, &settings.win_bg);
+        gc.set_fg(client, bg);
         self.wrapper.fill_rect(client, gc.gcid, Rectangle {
-            x: 1,
-            y: 20 + 1,
-            width: self.wrapper.width - 2,
-            height: self.wrapper.height - 20
+            x: border_width_l as i16,
+            y: 20 + border_width_t as i16,
+            width: self.wrapper.width - border_width_l - border_width_r,
+            height: self.wrapper.height - 20 - border_width_t - border_width_b
         });
 
-        let border_width = settings.win_border_width;
-        if border_width > 0 {
-            gc.set_fg(client, &settings.win_border_color);
-            let mut rects = Vec::with_capacity(border_width as usize);
+        let lines = border_width_l + border_width_t + border_width_r + border_width_b;
+        if lines > 0 {
+            gc.set_fg(client, border_color);
+            let mut rects = Vec::with_capacity(lines as usize);
             
-            for i in 0..border_width {
+            if border_width_l > 0 { // Left
                 rects.push(Rectangle {
-                    x: i as i16,
-                    y: i as i16,
-                    width: self.wrapper.width - i * 2,
-                    height: self.wrapper.height - i * 2
+                    x: 0,
+                    y: 20,
+                    width: border_width_l - 1,
+                    height: self.wrapper.height - 20
+                });
+            }
+            if border_width_t > 0 { // Top
+                rects.push(Rectangle {
+                    x: 0,
+                    y: 20,
+                    width: self.wrapper.width,
+                    height: border_width_t - 1
+                });
+            }
+            if border_width_r > 0 { // Right
+                rects.push(Rectangle {
+                    x: self.wrapper.width as i16 - border_width_r as i16,
+                    y: 20,
+                    width: border_width_r - 1,
+                    height: self.wrapper.height - 20
+                });
+            }
+            if border_width_b > 0 { // Bottom
+                rects.push(Rectangle {
+                    x: 0,
+                    y: self.wrapper.height as i16 - border_width_b as i16,
+                    width: self.wrapper.width,
+                    height: border_width_b - 1
                 });
             }
 
@@ -500,10 +596,21 @@ impl ManagedWindow {
 }
 
 fn debug_tiled_print(tiled: &mut Tiled, spacing: usize) {
-    println!("{}TILED", "  ".repeat(spacing));
+    if tiled.is_dirty() {
+        println!("{}TILED [DIRTY]", "  ".repeat(spacing));
+    } else {
+        println!("{}TILED", "  ".repeat(spacing));
+    }
+
     for tile in tiled.children.iter_mut() {
         match tile {
-            TiledChild::Window(_) => println!("{}WINDOW", "  ".repeat(spacing + 1)),
+            TiledChild::Window(wrapped) => {
+                if wrapped.focused {
+                    println!("{}WINDOW [FOCUSED]", "  ".repeat(spacing + 1));
+                } else {
+                    println!("{}WINDOW", "  ".repeat(spacing + 1));
+                }
+            },
             TiledChild::Tiled(child) => debug_tiled_print(child, spacing + 1)
         };
     }
