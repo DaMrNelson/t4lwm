@@ -201,6 +201,7 @@ impl Tiled {
                 },
                 TiledChild::Tiled(tiled) => {
                     if tiled.remove(wid) {
+                        index = i;
                         tiled_children = tiled.children.len(); // Will never be 0
                         break;
                     }
@@ -209,8 +210,9 @@ impl Tiled {
         }
 
         if tiled_children == 1 {
-            let mut tiled = self.children.remove(tiled_children).unwrap_tiled();
-            self.children.push(tiled.children.remove(0));
+            let mut tiled = self.children.remove(index).unwrap_tiled();
+            self.children.insert(index, tiled.children.remove(0));
+            self.set_first_focused();
             self.mark_dirty();
             return true;
         } else if tiled_children == 2 {
@@ -303,6 +305,20 @@ impl Tiled {
         return found;
     }
 
+    /** Makes the first window found focused. */
+    pub fn set_first_focused(&mut self) {
+        {
+            let child = self.children.get_mut(0).unwrap(); // Must always have at least one
+
+            match child {
+                TiledChild::Window(win) => win.focused = true,
+                TiledChild::Tiled(tiled) => tiled.set_first_focused()
+            };
+        }
+
+        self.mark_dirty();
+    }
+
     /** Returns the currently focused Window, or None */
     pub fn get_focused(&self) -> Option<&ManagedWindow> {
         for win in self.children.iter() {
@@ -335,27 +351,6 @@ impl Tiled {
                 },
                 TiledChild::Tiled(tiled) => {
                     let res = tiled.get_focused_mut();
-                    if res.is_some() {
-                        return res;
-                    }
-                }
-            }
-        }
-
-        return None;
-    }
-
-    /** Returns the currently focused child, or None */
-    pub fn get_focused_child_mut(&mut self) -> Option<&mut TiledChild> {
-        for win in self.children.iter_mut() {
-            match win {
-                TiledChild::Window(wrapped) => {
-                    if wrapped.focused {
-                        return Some(win);
-                    }
-                },
-                TiledChild::Tiled(tiled) => {
-                    let res = tiled.get_focused_child_mut();
                     if res.is_some() {
                         return res;
                     }
